@@ -10,8 +10,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: 0.1.0
     CURRENT_PROJECT_VERSION: 1
-    # DEVELOPMENT_TEAM is set after first sign-in to Xcode (Personal Team ID),
-    # so xcodegen regeneration doesn't wipe the signing config.
+    DEVELOPMENT_TEAM: YOUR_TEAM_ID  # your Personal Team (free account)
 targets:
   RepLog:
     type: application
