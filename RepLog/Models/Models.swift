@@ -122,8 +122,13 @@ final class RawLog {
     var input: String
     var parsedJSON: String?
     var statusRaw: String
+    var clarification: String?
+    var errorMessage: String?
 
-    var status: RawLogStatus { RawLogStatus(rawValue: statusRaw) ?? .note }
+    var status: RawLogStatus {
+        get { RawLogStatus(rawValue: statusRaw) ?? .note }
+        set { statusRaw = newValue.rawValue }
+    }
 
     init(timestamp: Date = .now, input: String, parsedJSON: String? = nil, status: RawLogStatus = .pending) {
         self.timestamp = timestamp

@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct RootTabView: View {
+    @AppStorage("didOnboard") private var didOnboard = false
+
     var body: some View {
         TabView {
             LogView()
@@ -11,6 +13,9 @@ struct RootTabView: View {
                 .tabItem { Label("Progress", systemImage: "chart.line.uptrend.xyaxis") }
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape.fill") }
+        }
+        .sheet(isPresented: .constant(!didOnboard)) {
+            OnboardingView()
         }
     }
 }

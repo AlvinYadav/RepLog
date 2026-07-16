@@ -5,6 +5,10 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var context
     @Query private var profiles: [UserProfile]
     @State private var apiKey = Keychain.get(Keychain.geminiAPIKey) ?? ""
+    @AppStorage("parseModel") private var parseModel = "gemini-flash-latest"
+    @AppStorage("reportModel") private var reportModel = "gemini-pro-latest"
+    @State private var testResult: String?
+    @State private var testing = false
 
     var body: some View {
         NavigationStack {
@@ -14,12 +18,46 @@ struct SettingsView: View {
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.never)
                         .onChange(of: apiKey) {
-                            Keychain.set(apiKey, for: Keychain.geminiAPIKey)
+                            Keychain.set(apiKey.trimmingCharacters(in: .whitespacesAndNewlines), for: Keychain.geminiAPIKey)
                         }
-                    if apiKey.isEmpty {
-                        Text("Required for AI logging (Phase 2+). Stored only in your device Keychain.")
+                    Button {
+                        testConnection()
+                    } label: {
+                        if testing {
+                            ProgressView()
+                        } else {
+                            Text("Test connection")
+                        }
+                    }
+                    .disabled(apiKey.isEmpty || testing)
+                    if let testResult {
+                        Text(testResult)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(testResult.hasPrefix("✓") ? .green : .red)
+                    }
+                }
+
+                Section("Models") {
+                    LabeledContent("Logging") {
+                        TextField("model id", text: $parseModel)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    LabeledContent("Reports") {
+                        TextField("model id", text: $reportModel)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    Text("Fast model for everyday parsing; stronger model for photo macros and weekly reports.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Section("Exercises") {
+                    NavigationLink("Manage exercises") {
+                        ExerciseListView()
                     }
                 }
 
@@ -28,11 +66,24 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    LabeledContent("Version", value: "0.1.0 (Phase 1)")
+                    LabeledContent("Version", value: "0.2.0 (Phase 2)")
                 }
             }
             .navigationTitle("Settings")
             .onAppear(perform: ensureProfile)
+        }
+    }
+
+    private func testConnection() {
+        testing = true
+        testResult = nil
+        Task {
+            let result = await GeminiClient.testConnection(model: parseModel)
+            switch result {
+            case .success: testResult = "✓ Connected — \(parseModel) responded."
+            case .failure(let error): testResult = error.localizedDescription
+            }
+            testing = false
         }
     }
 
