@@ -72,8 +72,17 @@ struct GeminiClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 60
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        // Free-tier models intermittently return 503 (overloaded) / 429 (rate limit);
+        // both are transient, so retry with backoff before surfacing an error.
+        var data = Data()
+        var status = 0
+        for attempt in 0..<4 {
+            if attempt > 0 {
+                try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
+            }
+            (data, status) = try await Self.send(request)
+            if status != 503 && status != 429 { break }
+        }
         guard (200..<300).contains(status) else {
             throw GeminiError.badResponse(status, String(data: data.prefix(500), encoding: .utf8) ?? "")
         }
@@ -84,6 +93,11 @@ struct GeminiClient {
             throw GeminiError.emptyCandidate
         }
         return text
+    }
+
+    private static func send(_ request: URLRequest) async throws -> (Data, Int) {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
 
     /// Quick connectivity check used by the Settings "Test" button.
