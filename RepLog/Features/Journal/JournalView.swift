@@ -93,6 +93,7 @@ struct JournalView: View {
             .sheet(item: $editingWeight) { WeightEditSheet(entry: $0) }
             .task {
                 LogPipeline.classifyExercisesIfNeeded(context: context)
+                LogPipeline.retryStalePending(context: context)
             }
             .onAppear(perform: configureSpeech)
             .onChange(of: selectedDate) { configureSpeech() }
@@ -203,7 +204,7 @@ struct JournalView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .font(.footnote.weight(.medium))
+            .font(.system(.footnote, design: .serif, weight: .medium))
             .monospacedDigit()
         }
         .padding(18)
@@ -226,7 +227,7 @@ struct JournalView: View {
             }
             .frame(height: 4)
             Text("\(String(format: "%.1f", Double(m.waterMl) / 1000)) / \(String(format: "%.1f", target / 1000)) L")
-                .font(.caption)
+                .font(.system(.caption, design: .serif))
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
                 .fixedSize()

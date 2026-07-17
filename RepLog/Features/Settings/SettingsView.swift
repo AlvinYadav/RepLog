@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var reviewError: String?
     @State private var suggestion: TargetSuggestion?
     @State private var exportURL: URL?
+    @AppStorage("waterRemindersOn") private var waterRemindersOn = false
 
     var body: some View {
         NavigationStack {
@@ -53,7 +54,7 @@ struct SettingsView: View {
                     } label: {
                         LabeledContent("Reports", value: reportModel)
                     }
-                    Text("Fast model for everyday parsing; stronger model for photo macros and weekly reports. Pick from the live list — congested models time out.")
+                    Text("Free-tier tip: the newest '-latest' models have tiny daily quotas (~20 requests). For logging, pick an older versioned Flash or a Lite model — they allow ~1,500/day and respond faster.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -73,6 +74,23 @@ struct SettingsView: View {
                 if let profile = profiles.first {
                     ProfileSection(profile: profile)
                     targetReviewSection(profile: profile)
+                }
+
+                Section("Reminders") {
+                    Toggle("Water reminders (3× a day)", isOn: $waterRemindersOn)
+                        .onChange(of: waterRemindersOn) {
+                            if waterRemindersOn {
+                                Task {
+                                    let granted = await NotificationService.enableWaterReminders()
+                                    if !granted { waterRemindersOn = false }
+                                }
+                            } else {
+                                NotificationService.disableWaterReminders()
+                            }
+                        }
+                    Text("Quiet nudges at 11:00, 15:00, and 19:00. No sound, no spam.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section("Apple Health") {

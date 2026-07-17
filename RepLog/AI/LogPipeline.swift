@@ -64,10 +64,30 @@ enum LogPipeline {
             raw.clarification = result.clarification
             raw.status = .parsed
             return summaries
+        } catch is CancellationError {
+            // Siri/system cancelled us mid-flight (time budget) — keep the
+            // entry pending; retryStalePending picks it up on next app open.
+            raw.status = .pending
+            raw.errorMessage = nil
+            return []
+        } catch let error as URLError where error.code == .cancelled {
+            raw.status = .pending
+            raw.errorMessage = nil
+            return []
         } catch {
             raw.status = .failed
             raw.errorMessage = Self.describe(error)
             return []
+        }
+    }
+
+    /// Re-runs pending entries that were interrupted (e.g. Siri time budget).
+    static func retryStalePending(context: ModelContext) {
+        let cutoff = Date.now.addingTimeInterval(-10)
+        let stale = ((try? context.fetch(FetchDescriptor<RawLog>())) ?? [])
+            .filter { $0.status == .pending && $0.timestamp < cutoff }
+        for raw in stale {
+            Task { await process(raw, context: context) }
         }
     }
 

@@ -26,7 +26,9 @@ enum GeminiError: LocalizedError {
 actor RequestGate {
     static let shared = RequestGate()
     private var lastRequest = Date.distantPast
-    private static let minInterval: TimeInterval = 4
+    // 6s spacing keeps even 10-requests-per-minute models happy; an isolated
+    // call (the normal case) passes through with no wait at all.
+    private static let minInterval: TimeInterval = 6
 
     func waitTurn() async {
         let elapsed = Date().timeIntervalSince(lastRequest)
