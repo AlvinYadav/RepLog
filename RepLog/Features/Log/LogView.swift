@@ -11,6 +11,7 @@ struct LogView: View {
     @Query(sort: \BodyWeightEntry.date, order: .reverse) private var weights: [BodyWeightEntry]
 
     @State private var draft = ""
+    @State private var speech = SpeechRecognizer()
     @FocusState private var inputFocused: Bool
     @State private var editingSet: WorkoutSet?
     @State private var editingFood: FoodEntry?
@@ -132,19 +133,49 @@ struct LogView: View {
     }
 
     private var inputBar: some View {
-        HStack(spacing: 12) {
-            TextField("bench 50kg 8 reps / 3 eggs on toast…", text: $draft, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .focused($inputFocused)
-                .submitLabel(.send)
-                .onSubmit(submit)
-            Button(action: submit) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
+        VStack(spacing: 8) {
+            if speech.isRecording {
+                Text(speech.transcript.isEmpty ? "Listening…" : speech.transcript)
+                    .font(.callout)
+                    .foregroundStyle(speech.transcript.isEmpty ? .secondary : .primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
             }
-            .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            if let error = speech.errorMessage {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(spacing: 12) {
+                Button {
+                    inputFocused = false
+                    speech.toggle()
+                } label: {
+                    Image(systemName: speech.isRecording ? "stop.circle.fill" : "mic.circle.fill")
+                        .font(.system(size: 46))
+                        .foregroundStyle(speech.isRecording ? .red : .accentColor)
+                        .symbolEffect(.pulse, options: .repeating, isActive: speech.isRecording)
+                }
+                TextField("bench 50kg 8 reps / 3 eggs on toast…", text: $draft, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .focused($inputFocused)
+                    .submitLabel(.send)
+                    .onSubmit(submit)
+                Button(action: submit) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 30))
+                }
+                .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
         }
         .padding()
+        .onAppear {
+            speech.onFinish = { text in
+                LogPipeline.submit(text: text, context: context)
+            }
+        }
     }
 
     private func submit() {
