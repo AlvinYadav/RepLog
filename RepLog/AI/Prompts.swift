@@ -1,7 +1,7 @@
 import Foundation
 
 enum Prompts {
-    static func logParsing(profile: UserProfile?, exercises: [Exercise]) -> String {
+    static func logParsing(profile: UserProfile?, exercises: [Exercise], recentFoods: [FoodEntry] = []) -> String {
         let exerciseList = exercises.isEmpty
             ? "(none yet — use sensible canonical gym exercise names)"
             : exercises.map { ex in
@@ -22,6 +22,7 @@ enum Prompts {
 
         The user's known exercises (map mentions onto these canonical names when they match):
         \(exerciseList)
+        \(recentFoodsBlock(recentFoods))
 
         Respond with ONLY a JSON object, no markdown, exactly this shape:
         {"entries": [ ... ], "clarification": null}
@@ -49,6 +50,18 @@ enum Prompts {
         If an image is attached, it is a photo of the user's food: identify each item and portion size from the image (plus any caption), then produce food entries with realistic macro estimates. Prefer one combined entry per plate/meal.
 
         An utterance may produce multiple entries of mixed kinds. If genuinely ambiguous (e.g. a number with no context), still produce best-guess entries AND set clarification to one short question. Ambiguous units: prefer kg — the user is metric.
+        """
+    }
+
+    private static func recentFoodsBlock(_ foods: [FoodEntry]) -> String {
+        guard !foods.isEmpty else { return "" }
+        let lines = foods.map { food in
+            "- \(food.foodDescription): \(food.calories) kcal, \(Int(food.proteinG))P, \(Int(food.carbsG))C, \(Int(food.fatG))F, \(Int(food.fiberG))Fb"
+        }.joined(separator: "\n")
+        return """
+
+        Foods this user has logged before, with THEIR established macros. When the user mentions one of these again (any phrasing that clearly means the same item, e.g. "had a yoga bar again"), REUSE these exact macros and description instead of estimating fresh ones:
+        \(lines)
         """
     }
 }

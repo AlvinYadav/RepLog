@@ -76,8 +76,7 @@ enum TargetAdvisor {
         Reply ONLY with JSON: {"calories": int, "protein_g": int, "carbs_g": int, "fat_g": int, "fiber_g": int, "rationale": "under 50 words, referencing their actual data"}
         """
 
-        let reply = try await GeminiClient(model: GeminiClient.defaultReportModel)
-            .generate(system: system, user: json, jsonOutput: true)
+        let reply = try await ReportEngine.generateWithFallback(system: system, user: json)
         let trimmed = reply.firstIndex(of: "{").map { String(reply[$0...]) } ?? reply
         return try JSONDecoder().decode(TargetSuggestion.self, from: Data(trimmed.utf8))
     }

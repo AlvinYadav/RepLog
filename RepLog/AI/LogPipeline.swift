@@ -48,12 +48,13 @@ enum LogPipeline {
     private static func process(_ raw: RawLog, context: ModelContext) async -> [String] {
         let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
+        let recentFoods = Self.recentUniqueFoods(context: context)
 
         do {
             // Flash handles vision well and is free-tier; Pro models have no free quota.
             let client = GeminiClient(model: GeminiClient.defaultParseModel)
             let json = try await client.generate(
-                system: Prompts.logParsing(profile: profile, exercises: exercises),
+                system: Prompts.logParsing(profile: profile, exercises: exercises, recentFoods: recentFoods),
                 user: raw.input,
                 image: raw.photoData.map { .init(mimeType: "image/jpeg", data: $0) },
                 jsonOutput: true
@@ -79,6 +80,25 @@ enum LogPipeline {
             raw.errorMessage = Self.describe(error)
             return []
         }
+    }
+
+    /// Recent distinct foods (newest occurrence wins) so repeat mentions
+    /// reuse established macros instead of fresh estimates.
+    private static func recentUniqueFoods(context: ModelContext, limit: Int = 12) -> [FoodEntry] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -30, to: .now)!
+        let all = ((try? context.fetch(FetchDescriptor<FoodEntry>())) ?? [])
+            .filter { $0.timestamp >= cutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+        var seen = Set<String>()
+        var unique: [FoodEntry] = []
+        for food in all {
+            let key = food.foodDescription.lowercased().trimmingCharacters(in: .whitespaces)
+            guard !key.isEmpty, !seen.contains(key) else { continue }
+            seen.insert(key)
+            unique.append(food)
+            if unique.count == limit { break }
+        }
+        return unique
     }
 
     /// Re-runs pending entries that were interrupted (e.g. Siri time budget).

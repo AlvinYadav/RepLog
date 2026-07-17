@@ -68,8 +68,7 @@ enum ReportEngine {
         2-3 items per list, each under 12 words. Be direct and specific to the data, never generic.
         """
 
-        let reply = try await GeminiClient(model: GeminiClient.defaultReportModel)
-            .generate(system: system, user: json, jsonOutput: true)
+        let reply = try await Self.generateWithFallback(system: system, user: json)
 
         let sections = try decodeSections(reply)
         let content = ReportContent(
@@ -90,6 +89,20 @@ enum ReportEngine {
         let report = WeeklyReport(weekStart: weekStart, text: stored)
         context.insert(report)
         return report
+    }
+
+    /// The report model, falling back to the logging model when the report
+    /// model is overloaded (503) or out of quota (429) — billing doesn't
+    /// exempt anyone from server-side "high demand".
+    static func generateWithFallback(system: String, user: String) async throws -> String {
+        do {
+            return try await GeminiClient(model: GeminiClient.defaultReportModel)
+                .generate(system: system, user: user, jsonOutput: true)
+        } catch GeminiError.badResponse(let code, _) where code == 503 || code == 429 {
+            guard GeminiClient.defaultReportModel != GeminiClient.defaultParseModel else { throw GeminiError.badResponse(code, "") }
+            return try await GeminiClient(model: GeminiClient.defaultParseModel)
+                .generate(system: system, user: user, jsonOutput: true)
+        }
     }
 
     private struct Sections: Decodable {
