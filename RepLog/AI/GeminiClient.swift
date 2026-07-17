@@ -23,7 +23,7 @@ struct GeminiClient {
         UserDefaults.standard.string(forKey: "parseModel") ?? "gemini-flash-latest"
     }
     static var defaultReportModel: String {
-        UserDefaults.standard.string(forKey: "reportModel") ?? "gemini-pro-latest"
+        UserDefaults.standard.string(forKey: "reportModel") ?? "gemini-flash-latest"
     }
 
     struct InlineImage {
@@ -88,6 +88,9 @@ struct GeminiClient {
                 continue
             }
             if status != 503 && status != 429 { break }
+            // A 429 with "limit: 0" means the model has no free-tier quota at
+            // all (e.g. Pro models) — retrying can never succeed.
+            if status == 429, String(data: data, encoding: .utf8)?.contains("limit: 0") == true { break }
         }
         guard (200..<300).contains(status) else {
             throw GeminiError.badResponse(status, String(data: data.prefix(500), encoding: .utf8) ?? "")

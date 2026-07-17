@@ -34,9 +34,8 @@ enum LogPipeline {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
 
         do {
-            // Vision calls go to the stronger report model; plain text uses the fast one.
-            let model = raw.photoData == nil ? GeminiClient.defaultParseModel : GeminiClient.defaultReportModel
-            let client = GeminiClient(model: model)
+            // Flash handles vision well and is free-tier; Pro models have no free quota.
+            let client = GeminiClient(model: GeminiClient.defaultParseModel)
             let json = try await client.generate(
                 system: Prompts.logParsing(profile: profile, exercises: exercises),
                 user: raw.input,

@@ -19,10 +19,16 @@ struct JournalView: View {
     @State private var entriesExpanded = false
     @State private var draft = ""
     @State private var speech = SpeechRecognizer()
+    private struct PendingPhoto: Identifiable {
+        let id = UUID()
+        let image: UIImage
+    }
+
     @State private var showPhotoDialog = false
     @State private var showCamera = false
     @State private var showLibrary = false
     @State private var libraryItem: PhotosPickerItem?
+    @State private var pendingPhoto: PendingPhoto?
     @FocusState private var inputFocused: Bool
     @State private var editingSet: WorkoutSet?
     @State private var editingFood: FoodEntry?
@@ -58,7 +64,7 @@ struct JournalView: View {
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showDatePicker) { datePickerSheet }
             .fullScreenCover(isPresented: $showCamera) {
-                CameraPicker { submitPhoto($0) }
+                CameraPicker { pendingPhoto = PendingPhoto(image: $0) }
                     .ignoresSafeArea()
             }
             .photosPicker(isPresented: $showLibrary, selection: $libraryItem, matching: .images)
@@ -68,8 +74,13 @@ struct JournalView: View {
                 Task {
                     if let data = try? await item.loadTransferable(type: Data.self),
                        let image = UIImage(data: data) {
-                        submitPhoto(image)
+                        pendingPhoto = PendingPhoto(image: image)
                     }
+                }
+            }
+            .sheet(item: $pendingPhoto) { photo in
+                PhotoReviewSheet(image: photo.image, initialCaption: draft) { caption in
+                    submitPhoto(photo.image, caption: caption)
                 }
             }
             .confirmationDialog("Log a meal photo", isPresented: $showPhotoDialog) {
@@ -486,11 +497,9 @@ struct JournalView: View {
         if !entriesExpanded { entriesExpanded = true }
     }
 
-    /// Any text in the draft field rides along as a caption for the photo.
-    private func submitPhoto(_ image: UIImage) {
+    private func submitPhoto(_ image: UIImage, caption: String?) {
         guard let jpeg = image.geminiJPEG() else { return }
-        let caption = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        LogPipeline.submitPhoto(jpeg, caption: caption.isEmpty ? nil : caption, at: entryTimestamp, context: context)
+        LogPipeline.submitPhoto(jpeg, caption: caption, at: entryTimestamp, context: context)
         draft = ""
         if !entriesExpanded { entriesExpanded = true }
     }
