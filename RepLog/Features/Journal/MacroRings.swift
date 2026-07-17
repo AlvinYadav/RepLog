@@ -29,7 +29,7 @@ struct MacroRing: View {
             .frame(width: size, height: size)
             .animation(.snappy, value: fraction)
             Text(label)
-                .font(.system(.caption2, design: .serif))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }
@@ -60,7 +60,7 @@ struct CaloriesRing: View {
                         .font(.system(size: 23, weight: .semibold, design: .serif))
                         .monospacedDigit()
                     Text("/ \(Int(target))")
-                        .font(.system(.caption2, design: .serif))
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -68,7 +68,7 @@ struct CaloriesRing: View {
             .frame(width: size, height: size)
             .animation(.snappy, value: fraction)
             Text("kcal")
-                .font(.system(.caption2, design: .serif))
+                .font(.caption2)
                 .foregroundStyle(.secondary)
         }
     }

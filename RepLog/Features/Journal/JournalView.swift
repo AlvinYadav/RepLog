@@ -18,6 +18,7 @@ struct JournalView: View {
     @State private var selectedDate = Date()
     @State private var showDatePicker = false
     @State private var entriesExpanded = false
+    @State private var waterExpanded = false
     @State private var draft = ""
     @State private var speech = SpeechRecognizer()
     private struct PendingPhoto: Identifiable {
@@ -34,6 +35,7 @@ struct JournalView: View {
     @State private var editingSet: WorkoutSet?
     @State private var editingFood: FoodEntry?
     @State private var editingWeight: BodyWeightEntry?
+    @State private var selectedPlanItem: PlanItem?
 
     private var calendar: Calendar { .current }
     private var isToday: Bool { calendar.isDateInToday(selectedDate) }
@@ -91,6 +93,7 @@ struct JournalView: View {
             .sheet(item: $editingSet) { SetEditSheet(workoutSet: $0) }
             .sheet(item: $editingFood) { FoodEditSheet(entry: $0) }
             .sheet(item: $editingWeight) { WeightEditSheet(entry: $0) }
+            .sheet(item: $selectedPlanItem) { PlanSuggestionSheet(item: $0) }
             .task {
                 LogPipeline.classifyExercisesIfNeeded(context: context)
                 LogPipeline.retryStalePending(context: context)
@@ -204,7 +207,7 @@ struct JournalView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .font(.system(.footnote, design: .serif, weight: .medium))
+            .font(.footnote.weight(.medium))
             .monospacedDigit()
         }
         .padding(18)
@@ -227,7 +230,7 @@ struct JournalView: View {
             }
             .frame(height: 4)
             Text("\(String(format: "%.1f", Double(m.waterMl) / 1000)) / \(String(format: "%.1f", target / 1000)) L")
-                .font(.system(.caption, design: .serif))
+                .font(.caption)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
                 .fixedSize()
@@ -246,7 +249,7 @@ struct JournalView: View {
 
     // MARK: - Plan
 
-    private var planLines: [String] {
+    private var planItems: [PlanItem] {
         PlanEngine.recommendations(
             profile: profile,
             exercises: exercises,
@@ -258,25 +261,40 @@ struct JournalView: View {
 
     @ViewBuilder
     private var planSection: some View {
-        let lines = planLines
+        let items = planItems
         VStack(alignment: .leading, spacing: 12) {
             Text("Plan")
                 .font(.system(.title3, design: .serif, weight: .semibold))
-            if lines.isEmpty {
+            if items.isEmpty {
                 Text("On track. Nothing to flag.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(lines, id: \.self) { line in
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Circle()
-                            .fill(.secondary)
-                            .frame(width: 4, height: 4)
-                            .offset(y: -2)
-                        Text(line)
-                            .font(.subheadline)
+                ForEach(items) { item in
+                    Button {
+                        selectedPlanItem = item
+                    } label: {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Circle()
+                                .fill(.secondary)
+                                .frame(width: 4, height: 4)
+                                .offset(y: -2)
+                            Text(item.text)
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
+                                .multilineTextAlignment(.leading)
+                            Spacer(minLength: 8)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
                 }
+                Text("Tap a line for a suggestion based on your logs.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -378,7 +396,7 @@ struct JournalView: View {
             entryGroup("Training", trainingItems)
             entryGroup("Food", foodItems)
             entryGroup("Supplements", supplementItems)
-            entryGroup("Water", waterItems)
+            waterGroup
             entryGroup("Weight", weightItems)
             entryGroup("Notes", noteItems + actionableItems)
         } else {
@@ -386,6 +404,54 @@ struct JournalView: View {
                 row(for: item)
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+            }
+        }
+    }
+
+    /// Water is one aggregate line by default — itemized only on demand
+    /// (the itemized view exists solely to delete a mis-log).
+    @ViewBuilder
+    private var waterGroup: some View {
+        if !waterItems.isEmpty {
+            let totalMl = waterItems.reduce(0) { sum, item in
+                if case .water(let entry) = item { return sum + entry.milliliters }
+                return sum
+            }
+            Button {
+                withAnimation(.snappy) { waterExpanded.toggle() }
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    Image(systemName: "drop")
+                        .font(.system(size: 15, weight: .light))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22)
+                    Text("Water")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text("\(String(format: "%.2f", Double(totalMl) / 1000)) L · \(waterItems.count) logs")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(waterExpanded ? 180 : 0))
+                }
+                .padding(.vertical, 10)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 4, leading: 20, bottom: 0, trailing: 20))
+
+            if waterExpanded {
+                ForEach(waterItems) { item in
+                    row(for: item)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 0, leading: 36, bottom: 0, trailing: 20))
+                }
             }
         }
     }

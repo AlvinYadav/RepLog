@@ -15,6 +15,21 @@ struct DayMetrics {
     var supplements: [String] = []
 }
 
+/// A single coaching line, typed so a tap can produce a targeted suggestion.
+struct PlanItem: Identifiable {
+    enum Kind {
+        case muscleGroup(group: String, exercise: String?)
+        case protein(gapG: Int)
+        case calories(gapKcal: Int)
+        case water(gapMl: Int)
+        case supplement(name: String)
+    }
+
+    let id = UUID()
+    let text: String
+    let kind: Kind
+}
+
 enum PlanEngine {
     static func metrics(
         on date: Date,
@@ -57,8 +72,8 @@ enum PlanEngine {
         allSupplements: [SupplementEntry],
         today: DayMetrics,
         now: Date = .now
-    ) -> [String] {
-        var recs: [String] = []
+    ) -> [PlanItem] {
+        var recs: [PlanItem] = []
         let cal = Calendar.current
         let hour = cal.component(.hour, from: now)
 
@@ -84,22 +99,36 @@ enum PlanEngine {
             return days >= 4 ? (group, days) : nil
         }
         for gap in gaps.sorted(by: { $0.days > $1.days }).prefix(2) {
-            let suggestion = groupExercise[gap.group].map { " — \($0)?" } ?? ""
-            recs.append("\(gap.group.capitalized) last trained \(gap.days) days ago\(suggestion)")
+            let exercise = groupExercise[gap.group]
+            let suggestion = exercise.map { " — \($0)?" } ?? ""
+            recs.append(PlanItem(
+                text: "\(gap.group.capitalized) last trained \(gap.days) days ago\(suggestion)",
+                kind: .muscleGroup(group: gap.group, exercise: exercise)
+            ))
         }
 
         // Macro shortfalls, only once the day is far enough along to matter.
         if let profile {
-            let proteinLeft = Double(profile.dailyProteinG) - today.proteinG
+            let proteinLeft = Int(Double(profile.dailyProteinG) - today.proteinG)
             if hour >= 15, proteinLeft > 25 {
-                recs.append("\(Int(proteinLeft))g protein still to go")
+                recs.append(PlanItem(
+                    text: "\(proteinLeft)g protein still to go",
+                    kind: .protein(gapG: proteinLeft)
+                ))
             }
             let caloriesLeft = profile.dailyCalories - today.calories
             if hour >= 18, caloriesLeft > 400 {
-                recs.append("\(caloriesLeft) kcal below target — keep the surplus")
+                recs.append(PlanItem(
+                    text: "\(caloriesLeft) kcal below target — keep the surplus",
+                    kind: .calories(gapKcal: caloriesLeft)
+                ))
             }
+            let waterLeft = profile.dailyWaterMl - today.waterMl
             if hour >= 18, today.waterMl > 0, today.waterMl < profile.dailyWaterMl * 6 / 10 {
-                recs.append("Water low — \(String(format: "%.1f", Double(profile.dailyWaterMl - today.waterMl) / 1000)) L to go")
+                recs.append(PlanItem(
+                    text: "Water low — \(String(format: "%.1f", Double(waterLeft) / 1000)) L to go",
+                    kind: .water(gapMl: waterLeft)
+                ))
             }
         }
 
@@ -115,7 +144,10 @@ enum PlanEngine {
         )
         let takenToday = Set(today.supplements.map { $0.lowercased() })
         for supplement in habitualSupplements.subtracting(takenToday).sorted() {
-            recs.append("\(supplement.capitalized) not logged today")
+            recs.append(PlanItem(
+                text: "\(supplement.capitalized) not logged today",
+                kind: .supplement(name: supplement)
+            ))
         }
 
         return recs
