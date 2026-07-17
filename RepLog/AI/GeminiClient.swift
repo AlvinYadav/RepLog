@@ -94,9 +94,14 @@ struct GeminiClient {
         }
 
         let decoded = try JSONDecoder().decode(GenerateContentResponse.self, from: data)
-        guard let text = decoded.candidates?.first?.content?.parts?.compactMap(\.text).joined(),
+        guard let candidate = decoded.candidates?.first,
+              let text = candidate.content?.parts?.compactMap(\.text).joined(),
               !text.isEmpty else {
             throw GeminiError.emptyCandidate
+        }
+        if let reason = candidate.finishReason, reason != "STOP" {
+            // Keep the reply but flag abnormal termination (e.g. MAX_TOKENS) for diagnostics.
+            return text + "\n/* finishReason: \(reason) */"
         }
         return text
     }
@@ -151,6 +156,7 @@ private struct GenerateContentResponse: Decodable {
             let parts: [Part]?
         }
         let content: Content?
+        let finishReason: String?
     }
     let candidates: [Candidate]?
 }

@@ -74,15 +74,86 @@ struct ParseResult: Decodable {
 }
 
 enum EntryParser {
-    /// Decodes the model's reply, tolerating markdown fences or stray prose
-    /// around the JSON object.
+    /// Decodes the model's reply, tolerating markdown fences, stray prose
+    /// around the JSON object, and truncated output (unclosed braces).
     static func parse(_ jsonText: String) throws -> ParseResult {
-        let trimmed: Substring
-        if let start = jsonText.firstIndex(of: "{"), let end = jsonText.lastIndex(of: "}"), start < end {
-            trimmed = jsonText[start...end]
+        let candidate: String
+        if let start = jsonText.firstIndex(of: "{") {
+            candidate = String(jsonText[start...])
         } else {
-            trimmed = Substring(jsonText)
+            candidate = jsonText
         }
-        return try JSONDecoder().decode(ParseResult.self, from: Data(trimmed.utf8))
+        do {
+            return try JSONDecoder().decode(ParseResult.self, from: Data(candidate.utf8))
+        } catch {
+            let repaired = repairTruncation(candidate)
+            guard repaired != candidate else { throw error }
+            return try JSONDecoder().decode(ParseResult.self, from: Data(repaired.utf8))
+        }
+    }
+
+    /// Closes any string/array/object left open by a cut-off reply.
+    private static func repairTruncation(_ text: String) -> String {
+        // Trim trailing junk after the JSON (e.g. closing markdown fence).
+        var s = text
+        if let lastBrace = s.lastIndex(where: { $0 == "}" || $0 == "]" || $0 == "\"" }) {
+            let tail = s[s.index(after: lastBrace)...]
+            if !tail.contains("{") { s = String(s[...lastBrace]) }
+        }
+
+        var stack: [Character] = []
+        var inString = false
+        var escaped = false
+        for ch in s {
+            if escaped { escaped = false; continue }
+            if ch == "\\" { escaped = true; continue }
+            if ch == "\"" { inString.toggle(); continue }
+            guard !inString else { continue }
+            switch ch {
+            case "{", "[": stack.append(ch)
+            case "}": if stack.last == "{" { stack.removeLast() }
+            case "]": if stack.last == "[" { stack.removeLast() }
+            default: break
+            }
+        }
+
+        guard inString || !stack.isEmpty else { return s }
+        var repaired = s
+        if inString { repaired.append("\"") }
+        while let last = repaired.last, last == " " || last == "\n" || last == "\t" {
+            repaired.removeLast()
+        }
+        // Make the dangling tail a complete member: `"key":` → null value,
+        // trailing comma → dropped, bare `"key"` → given a null value.
+        if repaired.hasSuffix(":") {
+            repaired.append(" null")
+        } else if repaired.hasSuffix(",") {
+            repaired.removeLast()
+        } else if repaired.hasSuffix("\""), stack.last == "{", isDanglingKey(repaired) {
+            repaired.append(": null")
+        }
+        for opener in stack.reversed() {
+            repaired.append(opener == "{" ? "}" : "]")
+        }
+        return repaired
+    }
+
+    /// True when the string's trailing quoted token is an object key (preceded
+    /// by `{` or `,`) rather than a value (preceded by `:`).
+    private static func isDanglingKey(_ s: String) -> Bool {
+        guard s.hasSuffix("\"") else { return false }
+        var index = s.index(before: s.endIndex)
+        // Find the matching opening quote (no escape handling needed for keys).
+        while index > s.startIndex {
+            index = s.index(before: index)
+            if s[index] == "\"" { break }
+        }
+        while index > s.startIndex {
+            index = s.index(before: index)
+            let ch = s[index]
+            if ch == " " || ch == "\n" || ch == "\t" { continue }
+            return ch == "{" || ch == ","
+        }
+        return false
     }
 }
