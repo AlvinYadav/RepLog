@@ -38,19 +38,17 @@ struct SettingsView: View {
                 }
 
                 Section("Models") {
-                    LabeledContent("Logging") {
-                        TextField("model id", text: $parseModel)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .multilineTextAlignment(.trailing)
+                    NavigationLink {
+                        ModelPickerView(title: "Logging model", selection: $parseModel)
+                    } label: {
+                        LabeledContent("Logging", value: parseModel)
                     }
-                    LabeledContent("Reports") {
-                        TextField("model id", text: $reportModel)
-                            .autocorrectionDisabled()
-                            .textInputAutocapitalization(.never)
-                            .multilineTextAlignment(.trailing)
+                    NavigationLink {
+                        ModelPickerView(title: "Reports model", selection: $reportModel)
+                    } label: {
+                        LabeledContent("Reports", value: reportModel)
                     }
-                    Text("Fast model for everyday parsing; stronger model for photo macros and weekly reports.")
+                    Text("Fast model for everyday parsing; stronger model for photo macros and weekly reports. Pick from the live list — congested models time out.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

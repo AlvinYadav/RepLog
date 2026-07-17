@@ -70,17 +70,24 @@ struct GeminiClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
-        request.timeoutInterval = 60
+        request.timeoutInterval = 25
 
-        // Free-tier models intermittently return 503 (overloaded) / 429 (rate limit);
-        // both are transient, so retry with backoff before surfacing an error.
+        // Free-tier models intermittently return 503 (overloaded) / 429 (rate limit)
+        // or simply hang; all are transient, so retry with backoff before surfacing.
         var data = Data()
         var status = 0
-        for attempt in 0..<4 {
+        let attempts = 4
+        for attempt in 0..<attempts {
             if attempt > 0 {
                 try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
             }
-            (data, status) = try await Self.send(request)
+            do {
+                (data, status) = try await Self.send(request)
+            } catch let error as URLError
+                where error.code == .timedOut || error.code == .networkConnectionLost {
+                if attempt == attempts - 1 { throw error }
+                continue
+            }
             if status != 503 && status != 429 { break }
         }
         guard (200..<300).contains(status) else {
@@ -98,6 +105,32 @@ struct GeminiClient {
     private static func send(_ request: URLRequest) async throws -> (Data, Int) {
         let (data, response) = try await URLSession.shared.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    /// Models available to the user's key that support generateContent.
+    static func listAvailableModels() async throws -> [String] {
+        guard let key = Keychain.get(Keychain.geminiAPIKey), !key.isEmpty else {
+            throw GeminiError.missingAPIKey
+        }
+        var request = URLRequest(url: URL(string: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=100")!)
+        request.setValue(key, forHTTPHeaderField: "x-goog-api-key")
+        request.timeoutInterval = 20
+        let (data, status) = try await send(request)
+        guard (200..<300).contains(status) else {
+            throw GeminiError.badResponse(status, String(data: data.prefix(500), encoding: .utf8) ?? "")
+        }
+        struct ModelList: Decodable {
+            struct Model: Decodable {
+                let name: String
+                let supportedGenerationMethods: [String]?
+            }
+            let models: [Model]?
+        }
+        let list = try JSONDecoder().decode(ModelList.self, from: data)
+        return (list.models ?? [])
+            .filter { $0.supportedGenerationMethods?.contains("generateContent") ?? false }
+            .map { $0.name.replacingOccurrences(of: "models/", with: "") }
+            .sorted()
     }
 
     /// Quick connectivity check used by the Settings "Test" button.

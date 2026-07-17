@@ -11,6 +11,7 @@ struct LogView: View {
     @Query(sort: \BodyWeightEntry.date, order: .reverse) private var weights: [BodyWeightEntry]
 
     @State private var draft = ""
+    @FocusState private var inputFocused: Bool
     @State private var editingSet: WorkoutSet?
     @State private var editingFood: FoodEntry?
     @State private var editingWeight: BodyWeightEntry?
@@ -86,11 +87,18 @@ struct LogView: View {
                         }
                     }
                     .listStyle(.plain)
+                    .scrollDismissesKeyboard(.immediately)
                 }
 
                 inputBar
             }
             .navigationTitle("Log")
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { inputFocused = false }
+                }
+            }
             .sheet(item: $editingSet) { SetEditSheet(workoutSet: $0) }
             .sheet(item: $editingFood) { FoodEditSheet(entry: $0) }
             .sheet(item: $editingWeight) { WeightEditSheet(entry: $0) }
@@ -127,6 +135,8 @@ struct LogView: View {
         HStack(spacing: 12) {
             TextField("bench 50kg 8 reps / 3 eggs on toast…", text: $draft, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
+                .focused($inputFocused)
+                .submitLabel(.send)
                 .onSubmit(submit)
             Button(action: submit) {
                 Image(systemName: "arrow.up.circle.fill")
