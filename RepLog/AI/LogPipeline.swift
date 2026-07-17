@@ -14,6 +14,15 @@ enum LogPipeline {
         Task { await process(raw, context: context) }
     }
 
+    /// Submits a meal photo (with optional caption) through the same pipeline.
+    static func submitPhoto(_ jpeg: Data, caption: String?, at timestamp: Date = .now, context: ModelContext) {
+        let label = (caption?.isEmpty == false) ? "Meal photo — \(caption!)" : "Meal photo"
+        let raw = RawLog(timestamp: timestamp, input: label, status: .pending)
+        raw.photoData = jpeg
+        context.insert(raw)
+        Task { await process(raw, context: context) }
+    }
+
     static func retry(_ raw: RawLog, context: ModelContext) {
         raw.status = .pending
         raw.errorMessage = nil
@@ -25,15 +34,18 @@ enum LogPipeline {
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
 
         do {
-            let client = GeminiClient(model: GeminiClient.defaultParseModel)
+            // Vision calls go to the stronger report model; plain text uses the fast one.
+            let model = raw.photoData == nil ? GeminiClient.defaultParseModel : GeminiClient.defaultReportModel
+            let client = GeminiClient(model: model)
             let json = try await client.generate(
                 system: Prompts.logParsing(profile: profile, exercises: exercises),
                 user: raw.input,
+                image: raw.photoData.map { .init(mimeType: "image/jpeg", data: $0) },
                 jsonOutput: true
             )
             raw.parsedJSON = json // stored before parsing so diagnostics always shows the raw reply
             let result = try EntryParser.parse(json)
-            materialize(result, at: raw.timestamp, context: context, exercises: exercises)
+            materialize(result, at: raw.timestamp, context: context, exercises: exercises, photo: raw.photoData)
             raw.clarification = result.clarification
             raw.status = .parsed
         } catch {
@@ -57,9 +69,11 @@ enum LogPipeline {
         _ result: ParseResult,
         at timestamp: Date,
         context: ModelContext,
-        exercises: [Exercise]
+        exercises: [Exercise],
+        photo: Data? = nil
     ) {
         var known = exercises
+        var photoToAttach = photo
         for entry in result.entries {
             switch entry.kind {
             case .workoutSet:
@@ -85,8 +99,10 @@ enum LogPipeline {
                     proteinG: entry.proteinG ?? 0,
                     carbsG: entry.carbsG ?? 0,
                     fatG: entry.fatG ?? 0,
-                    source: .text
+                    source: photoToAttach == nil ? .text : .photo,
+                    photoData: photoToAttach // first food entry keeps the photo
                 ))
+                photoToAttach = nil
             case .bodyWeight:
                 if let kg = entry.bodyWeightKg {
                     context.insert(BodyWeightEntry(date: timestamp, weightKg: kg))

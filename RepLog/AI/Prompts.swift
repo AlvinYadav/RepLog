@@ -40,6 +40,10 @@ enum Prompts {
         Output: {"entries": [{"kind": "supplement", "supplement_name": "Creatine", "amount": "9 g"}], "clarification": null}
         Input: 3 scrambled eggs and 2 toast with butter, weighed 70.5 this morning
         Output: {"entries": [{"kind": "food", "food_description": "3 scrambled eggs, 2 toast with butter", "calories": 460, "protein_g": 24, "carbs_g": 30, "fat_g": 27}, {"kind": "body_weight", "body_weight_kg": 70.5}], "clarification": null}
+        Input: shake with milk, one scoop protein powder and a tablespoon of peanut butter
+        Output: {"entries": [{"kind": "food", "food_description": "Shake: 250ml milk, 1 scoop whey, 1 tbsp peanut butter", "calories": 370, "protein_g": 36, "carbs_g": 18, "fat_g": 16}], "clarification": null}
+
+        If an image is attached, it is a photo of the user's food: identify each item and portion size from the image (plus any caption), then produce food entries with realistic macro estimates. Prefer one combined entry per plate/meal.
 
         An utterance may produce multiple entries of mixed kinds. If genuinely ambiguous (e.g. a number with no context), still produce best-guess entries AND set clarification to one short question. Ambiguous units: prefer kg — the user is metric.
         """

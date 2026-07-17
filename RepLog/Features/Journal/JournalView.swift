@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
 
 /// The home screen: one page per day. Summary and plan first,
 /// raw entries collapsed below, voice/text input pinned at the bottom.
@@ -18,6 +19,10 @@ struct JournalView: View {
     @State private var entriesExpanded = false
     @State private var draft = ""
     @State private var speech = SpeechRecognizer()
+    @State private var showPhotoDialog = false
+    @State private var showCamera = false
+    @State private var showLibrary = false
+    @State private var libraryItem: PhotosPickerItem?
     @FocusState private var inputFocused: Bool
     @State private var editingSet: WorkoutSet?
     @State private var editingFood: FoodEntry?
@@ -52,6 +57,25 @@ struct JournalView: View {
             .safeAreaInset(edge: .bottom) { inputBar }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showDatePicker) { datePickerSheet }
+            .fullScreenCover(isPresented: $showCamera) {
+                CameraPicker { submitPhoto($0) }
+                    .ignoresSafeArea()
+            }
+            .photosPicker(isPresented: $showLibrary, selection: $libraryItem, matching: .images)
+            .onChange(of: libraryItem) {
+                guard let item = libraryItem else { return }
+                libraryItem = nil
+                Task {
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        submitPhoto(image)
+                    }
+                }
+            }
+            .confirmationDialog("Log a meal photo", isPresented: $showPhotoDialog) {
+                Button("Take photo") { showCamera = true }
+                Button("Choose from library") { showLibrary = true }
+            }
             .sheet(item: $editingSet) { SetEditSheet(workoutSet: $0) }
             .sheet(item: $editingFood) { FoodEditSheet(entry: $0) }
             .sheet(item: $editingWeight) { WeightEditSheet(entry: $0) }
@@ -414,6 +438,16 @@ struct JournalView: View {
                         .background(speech.isRecording ? Color(.secondarySystemBackground) : Color.primary, in: Circle())
                         .symbolEffect(.pulse, options: .repeating, isActive: speech.isRecording)
                 }
+                Button {
+                    inputFocused = false
+                    showPhotoDialog = true
+                } label: {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .background(Color(.secondarySystemBackground), in: Circle())
+                }
                 TextField(isToday ? "Log anything…" : "Log for this day…", text: $draft, axis: .vertical)
                     .font(.subheadline)
                     .padding(.horizontal, 14)
@@ -448,6 +482,15 @@ struct JournalView: View {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         LogPipeline.submit(text: text, at: entryTimestamp, context: context)
+        draft = ""
+        if !entriesExpanded { entriesExpanded = true }
+    }
+
+    /// Any text in the draft field rides along as a caption for the photo.
+    private func submitPhoto(_ image: UIImage) {
+        guard let jpeg = image.geminiJPEG() else { return }
+        let caption = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        LogPipeline.submitPhoto(jpeg, caption: caption.isEmpty ? nil : caption, at: entryTimestamp, context: context)
         draft = ""
         if !entriesExpanded { entriesExpanded = true }
     }

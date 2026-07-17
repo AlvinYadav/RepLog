@@ -27,7 +27,8 @@ struct FoodCard: View {
             icon: "fork.knife",
             title: entry.foodDescription,
             detail: "\(entry.calories) kcal · \(Int(entry.proteinG))P · \(Int(entry.carbsG))C · \(Int(entry.fatG))F",
-            timestamp: entry.timestamp
+            timestamp: entry.timestamp,
+            thumbnailData: entry.photoData
         )
     }
 }
@@ -52,7 +53,7 @@ struct SupplementCard: View {
         EntryRow(
             icon: "pills",
             title: entry.name,
-            detail: entry.amount ?? "Supplement",
+            detail: entry.amount.map { "Supplement · \($0)" } ?? "Supplement",
             timestamp: entry.timestamp
         )
     }
@@ -63,13 +64,23 @@ struct EntryRow: View {
     let title: String
     let detail: String
     let timestamp: Date
+    var thumbnailData: Data? = nil
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 14) {
-            Image(systemName: icon)
-                .font(.system(size: 15, weight: .light))
-                .foregroundStyle(.secondary)
-                .frame(width: 22)
+            if let data = thumbnailData, let image = UIImage(data: data) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 34, height: 34)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .alignmentGuide(.firstTextBaseline) { d in d[VerticalAlignment.center] + 6 }
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .light))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 22)
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.subheadline.weight(.medium))

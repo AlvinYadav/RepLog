@@ -137,6 +137,8 @@ final class RawLog {
     var statusRaw: String
     var clarification: String?
     var errorMessage: String?
+    /// Attached meal photo (downscaled JPEG) — kept on the log so retry works.
+    @Attribute(.externalStorage) var photoData: Data?
 
     var status: RawLogStatus {
         get { RawLogStatus(rawValue: statusRaw) ?? .note }
