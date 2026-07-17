@@ -29,21 +29,26 @@ struct JournalView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+            List {
+                Group {
                     header
+                        .gesture(daySwipe)
                     summaryCard
+                        .gesture(daySwipe)
                     if isToday {
                         planSection
+                            .gesture(daySwipe)
                     }
-                    entriesSection
+                    entriesHeader
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 8)
-                .padding(.bottom, 12)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 10, leading: 20, bottom: 10, trailing: 20))
+
+                entryGroups
             }
+            .listStyle(.plain)
             .scrollDismissesKeyboard(.immediately)
-            .simultaneousGesture(daySwipe)
             .safeAreaInset(edge: .bottom) { inputBar }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showDatePicker) { datePickerSheet }
@@ -94,6 +99,7 @@ struct JournalView: View {
                     }
                     .disabled(isToday)
                 }
+                .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
             }
         }
@@ -130,7 +136,7 @@ struct JournalView: View {
     private var summaryCard: some View {
         let m = metrics
         return VStack(alignment: .leading, spacing: 14) {
-            macroLine("Calories", m.calories == 0 ? 0 : Double(m.calories), Double(profile?.dailyCalories ?? 2500), unit: "kcal")
+            macroLine("Calories", Double(m.calories), Double(profile?.dailyCalories ?? 2500), unit: "kcal")
             macroLine("Protein", m.proteinG, Double(profile?.dailyProteinG ?? 150), unit: "g")
             macroLine("Carbs", m.carbsG, Double(profile?.dailyCarbsG ?? 300), unit: "g")
             macroLine("Fat", m.fatG, Double(profile?.dailyFatG ?? 80), unit: "g")
@@ -247,95 +253,129 @@ struct JournalView: View {
         }
     }
 
-    private var dayItems: [Item] {
-        var items: [Item] = []
-        items += sets.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.set)
-        items += foods.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.food)
-        items += weights.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }.map(Item.weight)
-        items += supplements.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.supplement)
-        items += logs
-            .filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) && $0.status != .parsed }
-            .map(Item.raw)
-        return items.sorted { $0.timestamp > $1.timestamp }
+    private var trainingItems: [Item] {
+        sets.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.set)
+    }
+    private var foodItems: [Item] {
+        foods.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.food)
+    }
+    private var supplementItems: [Item] {
+        supplements.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.supplement)
+    }
+    private var weightItems: [Item] {
+        weights.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }.map(Item.weight)
+    }
+    private var noteItems: [Item] {
+        logs.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) && $0.status == .note }.map(Item.raw)
+    }
+    /// Pending/failed rows: always visible, even collapsed.
+    private var actionableItems: [Item] {
+        logs.filter {
+            calendar.isDate($0.timestamp, inSameDayAs: selectedDate) && ($0.status == .pending || $0.status == .failed)
+        }.map(Item.raw)
     }
 
-    /// Pending/failed rows surface even when the list is collapsed.
-    private var actionableItems: [Item] {
-        dayItems.filter {
-            if case .raw(let raw) = $0 { return raw.status == .pending || raw.status == .failed }
-            return false
+    private var entryCount: Int {
+        trainingItems.count + foodItems.count + supplementItems.count
+            + weightItems.count + noteItems.count + actionableItems.count
+    }
+
+    private var entriesHeader: some View {
+        Button {
+            withAnimation(.snappy) { entriesExpanded.toggle() }
+        } label: {
+            HStack(spacing: 8) {
+                Text("Entries")
+                    .font(.system(.title3, design: .serif, weight: .semibold))
+                    .foregroundStyle(.primary)
+                Text("\(entryCount)")
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .rotationEffect(.degrees(entriesExpanded ? 180 : 0))
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private var entryGroups: some View {
+        if entryCount == 0 {
+            Text("Nothing logged.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 8, trailing: 20))
+        } else if entriesExpanded {
+            entryGroup("Training", trainingItems)
+            entryGroup("Food", foodItems)
+            entryGroup("Supplements", supplementItems)
+            entryGroup("Weight", weightItems)
+            entryGroup("Notes", noteItems + actionableItems)
+        } else {
+            ForEach(actionableItems) { item in
+                row(for: item)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
+            }
         }
     }
 
-    private var entriesSection: some View {
-        let items = dayItems
-        return VStack(alignment: .leading, spacing: 4) {
-            Button {
-                withAnimation(.snappy) { entriesExpanded.toggle() }
-            } label: {
-                HStack(spacing: 8) {
-                    Text("Entries")
-                        .font(.system(.title3, design: .serif, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text("\(items.count)")
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(entriesExpanded ? 180 : 0))
-                }
-            }
-            .buttonStyle(.plain)
-
-            if items.isEmpty {
-                Text("Nothing logged.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
-            } else if entriesExpanded {
-                VStack(spacing: 0) {
-                    ForEach(items) { item in
-                        row(for: item)
-                        if item.id != items.last?.id { Divider() }
-                    }
-                }
-            } else {
-                ForEach(actionableItems) { item in
-                    row(for: item)
-                }
+    @ViewBuilder
+    private func entryGroup(_ title: String, _ items: [Item]) -> some View {
+        if !items.isEmpty {
+            Text(title.uppercased())
+                .font(.caption2.weight(.medium))
+                .tracking(1.5)
+                .foregroundStyle(.secondary)
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .listRowInsets(EdgeInsets(top: 14, leading: 20, bottom: 2, trailing: 20))
+            ForEach(items) { item in
+                row(for: item)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
             }
         }
     }
 
     @ViewBuilder
     private func row(for item: Item) -> some View {
-        switch item {
-        case .set(let set):
-            Button { editingSet = set } label: { WorkoutSetCard(workoutSet: set) }
-                .buttonStyle(.plain)
-                .contextMenu { deleteButton { context.delete(set) } }
-        case .food(let food):
-            Button { editingFood = food } label: { FoodCard(entry: food) }
-                .buttonStyle(.plain)
-                .contextMenu { deleteButton { context.delete(food) } }
-        case .weight(let weight):
-            Button { editingWeight = weight } label: { WeightCard(entry: weight) }
-                .buttonStyle(.plain)
-                .contextMenu { deleteButton { context.delete(weight) } }
-        case .supplement(let supplement):
-            SupplementCard(entry: supplement)
-                .contextMenu { deleteButton { context.delete(supplement) } }
-        case .raw(let raw):
-            RawLogRow(raw: raw) { LogPipeline.retry(raw, context: context) }
-                .contextMenu { deleteButton { context.delete(raw) } }
+        Group {
+            switch item {
+            case .set(let set):
+                Button { editingSet = set } label: { WorkoutSetCard(workoutSet: set) }
+                    .buttonStyle(.plain)
+            case .food(let food):
+                Button { editingFood = food } label: { FoodCard(entry: food) }
+                    .buttonStyle(.plain)
+            case .weight(let weight):
+                Button { editingWeight = weight } label: { WeightCard(entry: weight) }
+                    .buttonStyle(.plain)
+            case .supplement(let supplement):
+                SupplementCard(entry: supplement)
+            case .raw(let raw):
+                RawLogRow(raw: raw) { LogPipeline.retry(raw, context: context) }
+            }
+        }
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            Button(role: .destructive) { delete(item) } label: {
+                Label("Delete", systemImage: "trash")
+            }
         }
     }
 
-    private func deleteButton(_ action: @escaping () -> Void) -> some View {
-        Button(role: .destructive, action: action) {
-            Label("Delete", systemImage: "trash")
+    private func delete(_ item: Item) {
+        switch item {
+        case .set(let m): context.delete(m)
+        case .food(let m): context.delete(m)
+        case .weight(let m): context.delete(m)
+        case .supplement(let m): context.delete(m)
+        case .raw(let m): context.delete(m)
         }
     }
 
@@ -421,7 +461,7 @@ struct JournalView: View {
         vocabulary += [
             "reps", "rep", "sets", "kilos", "kg", "RDL", "RDLs", "superset", "drop set",
             "bench press", "incline", "deadlift", "lat pulldown", "overhead press",
-            "creatine", "protein shake", "pre-workout", "bodyweight", "PR"
+            "creatine", "protein shake", "pre-workout", "bodyweight", "PR", "scoop", "scoops"
         ]
         speech.vocabulary = vocabulary
     }

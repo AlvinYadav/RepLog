@@ -30,14 +30,14 @@ enum Prompts {
         - {"kind": "workout_set", "exercise": str, "weight_kg": num, "reps": int, "sets_count": int, "muscle_groups": [str]} — reps = repetitions in one set. "3 sets of 8 at 50" → ONE entry with reps=8, sets_count=3. "50 for 8 then 7" → two entries. Bodyweight movements → weight_kg=0. Convert lbs to kg (1 lb = 0.4536 kg). Exactly one entry per distinct set mentioned — never duplicate. muscle_groups = the exercise's primary groups from: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core.
         - {"kind": "food", "food_description": str, "calories": int, "protein_g": num, "carbs_g": num, "fat_g": num} — short itemized description; ESTIMATE macros realistically for the portion (assume normal portions when unspecified).
         - {"kind": "body_weight", "body_weight_kg": num}
-        - {"kind": "supplement", "supplement_name": str} — creatine, vitamins, pre-workout etc. A protein shake with meaningful calories is kind=food instead.
+        - {"kind": "supplement", "supplement_name": str, "amount": str|null} — creatine, vitamins, pre-workout etc. Convert doses: one creatine scoop = 3 g, so "3 scoops of creatine" → amount "9 g". Omit amount when unstated. A protein shake with meaningful calories is kind=food instead.
         - {"kind": "note", "note": str} — anything else worth keeping (soreness, sleep, PRs, plans).
 
         Examples:
         Input: bench 40kg 3 reps
         Output: {"entries": [{"kind": "workout_set", "exercise": "Bench Press", "weight_kg": 40, "reps": 3, "sets_count": 1, "muscle_groups": ["chest", "triceps"]}], "clarification": null}
-        Input: took my creatine
-        Output: {"entries": [{"kind": "supplement", "supplement_name": "Creatine"}], "clarification": null}
+        Input: took 3 scoops of creatine
+        Output: {"entries": [{"kind": "supplement", "supplement_name": "Creatine", "amount": "9 g"}], "clarification": null}
         Input: 3 scrambled eggs and 2 toast with butter, weighed 70.5 this morning
         Output: {"entries": [{"kind": "food", "food_description": "3 scrambled eggs, 2 toast with butter", "calories": 460, "protein_g": 24, "carbs_g": 30, "fat_g": 27}, {"kind": "body_weight", "body_weight_kg": 70.5}], "clarification": null}
 

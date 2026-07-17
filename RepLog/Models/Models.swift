@@ -112,10 +112,12 @@ final class BodyWeightEntry {
 @Model
 final class SupplementEntry {
     var name: String
+    var amount: String?
     var timestamp: Date
 
-    init(name: String, timestamp: Date = .now) {
+    init(name: String, amount: String? = nil, timestamp: Date = .now) {
         self.name = name
+        self.amount = amount
         self.timestamp = timestamp
     }
 }

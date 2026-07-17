@@ -52,7 +52,7 @@ struct SupplementCard: View {
         EntryRow(
             icon: "pills",
             title: entry.name,
-            detail: "Supplement",
+            detail: entry.amount ?? "Supplement",
             timestamp: entry.timestamp
         )
     }

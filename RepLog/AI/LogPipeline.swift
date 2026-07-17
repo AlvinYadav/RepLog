@@ -93,7 +93,7 @@ enum LogPipeline {
                 }
             case .supplement:
                 if let name = entry.supplementName, !name.isEmpty {
-                    context.insert(SupplementEntry(name: name, timestamp: timestamp))
+                    context.insert(SupplementEntry(name: name, amount: entry.supplementAmount, timestamp: timestamp))
                 }
             case .note:
                 if let note = entry.note, !note.isEmpty {
