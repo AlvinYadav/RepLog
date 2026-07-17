@@ -59,6 +59,12 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("Diagnostics") {
+                    NavigationLink("Recent AI parses") {
+                        ParseHistoryView()
+                    }
+                }
+
                 if let profile = profiles.first {
                     ProfileSection(profile: profile)
                 }

@@ -33,6 +33,38 @@ struct ParsedEntry: Decodable {
         case fatG = "fat_g"
         case bodyWeightKg = "body_weight_kg"
     }
+
+    // Models are inconsistent with JSON number types (3 vs 3.0 vs "3"),
+    // so numeric fields are decoded leniently instead of trusting the schema.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(Kind.self, forKey: .kind)
+        exercise = try? c.decodeIfPresent(String.self, forKey: .exercise)
+        note = try? c.decodeIfPresent(String.self, forKey: .note)
+        foodDescription = try? c.decodeIfPresent(String.self, forKey: .foodDescription)
+        weightKg = Self.flexibleDouble(c, .weightKg)
+        reps = Self.flexibleInt(c, .reps)
+        setsCount = Self.flexibleInt(c, .setsCount)
+        calories = Self.flexibleInt(c, .calories)
+        proteinG = Self.flexibleDouble(c, .proteinG)
+        carbsG = Self.flexibleDouble(c, .carbsG)
+        fatG = Self.flexibleDouble(c, .fatG)
+        bodyWeightKg = Self.flexibleDouble(c, .bodyWeightKg)
+    }
+
+    private static func flexibleDouble(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Double? {
+        if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return d }
+        if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return Double(i) }
+        if let s = try? c.decodeIfPresent(String.self, forKey: key) { return Double(s) }
+        return nil
+    }
+
+    private static func flexibleInt(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Int? {
+        if let i = try? c.decodeIfPresent(Int.self, forKey: key) { return i }
+        if let d = try? c.decodeIfPresent(Double.self, forKey: key) { return Int(d.rounded()) }
+        if let s = try? c.decodeIfPresent(String.self, forKey: key) { return Int(s) ?? Double(s).map { Int($0.rounded()) } }
+        return nil
+    }
 }
 
 struct ParseResult: Decodable {
