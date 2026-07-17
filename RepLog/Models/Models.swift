@@ -122,6 +122,19 @@ final class SupplementEntry {
     }
 }
 
+@Model
+final class WeeklyReport {
+    var weekStart: Date
+    var text: String
+    var createdAt: Date
+
+    init(weekStart: Date, text: String, createdAt: Date = .now) {
+        self.weekStart = weekStart
+        self.text = text
+        self.createdAt = createdAt
+    }
+}
+
 enum RawLogStatus: String, Codable {
     case pending
     case parsed

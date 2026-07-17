@@ -14,6 +14,7 @@ struct RepLogApp: App {
             FoodEntry.self,
             BodyWeightEntry.self,
             SupplementEntry.self,
+            WeeklyReport.self,
             RawLog.self
         ])
     }
