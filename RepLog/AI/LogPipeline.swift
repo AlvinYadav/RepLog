@@ -6,8 +6,10 @@ import SwiftData
 /// stays in the stream with an error badge and can be retried.
 @MainActor
 enum LogPipeline {
-    static func submit(text: String, context: ModelContext) {
-        let raw = RawLog(input: text, status: .pending)
+    /// Submits an utterance, timestamped `at` the given moment (defaults to now,
+    /// so entries logged while viewing a past day land on that day).
+    static func submit(text: String, at timestamp: Date = .now, context: ModelContext) {
+        let raw = RawLog(timestamp: timestamp, input: text, status: .pending)
         context.insert(raw)
         Task { await process(raw, context: context) }
     }
@@ -63,6 +65,9 @@ enum LogPipeline {
             case .workoutSet:
                 guard let name = entry.exercise else { continue }
                 let exercise = findOrCreateExercise(named: name, in: &known, context: context)
+                if exercise.muscleGroups.isEmpty, let groups = entry.muscleGroups, !groups.isEmpty {
+                    exercise.muscleGroups = groups.map { $0.lowercased() }
+                }
                 let count = max(entry.setsCount ?? 1, 1)
                 for _ in 0..<count {
                     context.insert(WorkoutSet(
@@ -86,10 +91,48 @@ enum LogPipeline {
                 if let kg = entry.bodyWeightKg {
                     context.insert(BodyWeightEntry(date: timestamp, weightKg: kg))
                 }
+            case .supplement:
+                if let name = entry.supplementName, !name.isEmpty {
+                    context.insert(SupplementEntry(name: name, timestamp: timestamp))
+                }
             case .note:
                 if let note = entry.note, !note.isEmpty {
                     context.insert(RawLog(timestamp: timestamp, input: note, status: .note))
                 }
+            }
+        }
+    }
+
+    /// Backfills muscle groups for exercises that were created without them
+    /// (e.g. typed during onboarding). Fires one silent background call.
+    private static var classifyAttempted = false
+    static func classifyExercisesIfNeeded(context: ModelContext) {
+        guard !classifyAttempted else { return }
+        let unclassified = ((try? context.fetch(FetchDescriptor<Exercise>())) ?? [])
+            .filter { $0.muscleGroups.isEmpty }
+        guard !unclassified.isEmpty else { return }
+        classifyAttempted = true
+        Task {
+            do {
+                let client = GeminiClient(model: GeminiClient.defaultParseModel)
+                let json = try await client.generate(
+                    system: """
+                    Map each gym exercise to its primary muscle groups, chosen from:
+                    chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core.
+                    Reply ONLY JSON, e.g. {"Bench Press": ["chest", "triceps"]}
+                    """,
+                    user: unclassified.map(\.name).joined(separator: ", "),
+                    jsonOutput: true
+                )
+                let start = json.firstIndex(of: "{").map { String(json[$0...]) } ?? json
+                let mapping = try JSONDecoder().decode([String: [String]].self, from: Data(start.utf8))
+                for exercise in unclassified {
+                    if let groups = mapping.first(where: { $0.key.lowercased() == exercise.name.lowercased() })?.value {
+                        exercise.muscleGroups = groups.map { $0.lowercased() }
+                    }
+                }
+            } catch {
+                classifyAttempted = false // retry on next launch
             }
         }
     }

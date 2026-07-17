@@ -12,6 +12,8 @@ final class SpeechRecognizer {
     var isRecording = false
     var errorMessage: String?
     var onFinish: ((String) -> Void)?
+    /// Domain words (exercise names, gym jargon) the recognizer should favor.
+    var vocabulary: [String] = []
 
     private var audioEngine: AVAudioEngine?
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -59,6 +61,7 @@ final class SpeechRecognizer {
             let engine = AVAudioEngine()
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
+            request.contextualStrings = vocabulary
 
             let inputNode = engine.inputNode
             let format = inputNode.outputFormat(forBus: 0)

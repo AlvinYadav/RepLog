@@ -7,6 +7,7 @@ struct ParsedEntry: Decodable {
         case workoutSet = "workout_set"
         case food
         case bodyWeight = "body_weight"
+        case supplement
         case note
     }
 
@@ -15,23 +16,27 @@ struct ParsedEntry: Decodable {
     let weightKg: Double?
     let reps: Int?
     let setsCount: Int?
+    let muscleGroups: [String]?
     let foodDescription: String?
     let calories: Int?
     let proteinG: Double?
     let carbsG: Double?
     let fatG: Double?
     let bodyWeightKg: Double?
+    let supplementName: String?
     let note: String?
 
     enum CodingKeys: String, CodingKey {
         case kind, exercise, reps, note, calories
         case weightKg = "weight_kg"
         case setsCount = "sets_count"
+        case muscleGroups = "muscle_groups"
         case foodDescription = "food_description"
         case proteinG = "protein_g"
         case carbsG = "carbs_g"
         case fatG = "fat_g"
         case bodyWeightKg = "body_weight_kg"
+        case supplementName = "supplement_name"
     }
 
     // Models are inconsistent with JSON number types (3 vs 3.0 vs "3"),
@@ -43,6 +48,8 @@ struct ParsedEntry: Decodable {
         exercise = try? c.decodeIfPresent(String.self, forKey: .exercise)
         note = try? c.decodeIfPresent(String.self, forKey: .note)
         foodDescription = try? c.decodeIfPresent(String.self, forKey: .foodDescription)
+        supplementName = try? c.decodeIfPresent(String.self, forKey: .supplementName)
+        muscleGroups = try? c.decodeIfPresent([String].self, forKey: .muscleGroups)
         weightKg = Self.flexibleDouble(c, .weightKg)
         reps = Self.flexibleInt(c, .reps)
         setsCount = Self.flexibleInt(c, .setsCount)

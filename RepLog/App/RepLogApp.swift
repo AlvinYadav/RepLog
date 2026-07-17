@@ -13,6 +13,7 @@ struct RepLogApp: App {
             WorkoutSet.self,
             FoodEntry.self,
             BodyWeightEntry.self,
+            SupplementEntry.self,
             RawLog.self
         ])
     }

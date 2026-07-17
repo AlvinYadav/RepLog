@@ -109,6 +109,17 @@ final class BodyWeightEntry {
     }
 }
 
+@Model
+final class SupplementEntry {
+    var name: String
+    var timestamp: Date
+
+    init(name: String, timestamp: Date = .now) {
+        self.name = name
+        self.timestamp = timestamp
+    }
+}
+
 enum RawLogStatus: String, Codable {
     case pending
     case parsed
