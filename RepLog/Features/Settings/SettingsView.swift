@@ -9,6 +9,10 @@ struct SettingsView: View {
     @AppStorage("reportModel") private var reportModel = "gemini-pro-latest"
     @State private var testResult: String?
     @State private var testing = false
+    @State private var healthConnected = false
+    @State private var reviewing = false
+    @State private var reviewError: String?
+    @State private var suggestion: TargetSuggestion?
 
     var body: some View {
         NavigationStack {
@@ -67,14 +71,75 @@ struct SettingsView: View {
 
                 if let profile = profiles.first {
                     ProfileSection(profile: profile)
+                    targetReviewSection(profile: profile)
+                }
+
+                Section("Apple Health") {
+                    Button(healthConnected ? "Connected ✓" : "Connect Apple Health") {
+                        Task {
+                            healthConnected = await HealthService.shared.requestAuthorization()
+                        }
+                    }
+                    .disabled(healthConnected)
+                    Text("Steps and active energy feed into your weekly report.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section {
-                    LabeledContent("Version", value: "0.2.0 (Phase 2)")
+                    LabeledContent("Version", value: "0.5.0")
                 }
             }
             .navigationTitle("Settings")
             .onAppear(perform: ensureProfile)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        UIApplication.shared.sendAction(
+                            #selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil
+                        )
+                    }
+                }
+            }
+            .sheet(item: $suggestion) { suggestion in
+                TargetSuggestionSheet(suggestion: suggestion, profile: profiles.first)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func targetReviewSection(profile: UserProfile) -> some View {
+        Section {
+            Button {
+                reviewTargets()
+            } label: {
+                if reviewing {
+                    ProgressView()
+                } else {
+                    Text("Review targets with AI")
+                }
+            }
+            .disabled(reviewing)
+            if let error = reviewError {
+                Text(error).font(.caption).foregroundStyle(.red)
+            }
+            Text("Current defaults assume a 170 cm lean bulk: ≈2,500 kcal (maintenance plus a ~400 kcal surplus) and protein at ~2.2 g per kg. After a week of logging, the AI can tune these to your actual intake, weight trend, and training.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func reviewTargets() {
+        reviewing = true
+        reviewError = nil
+        Task {
+            do {
+                suggestion = try await TargetAdvisor.suggest(context: context)
+            } catch {
+                reviewError = error.localizedDescription
+            }
+            reviewing = false
         }
     }
 
@@ -135,6 +200,75 @@ private struct ProfileSection: View {
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.trailing)
             }
+            LabeledContent("Fiber") {
+                TextField("g", value: $profile.dailyFiberG, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+            }
+            LabeledContent("Water") {
+                TextField("ml", value: $profile.dailyWaterMl, format: .number)
+                    .keyboardType(.numberPad)
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+    }
+}
+
+struct TargetSuggestionSheet: View {
+    let suggestion: TargetSuggestion
+    let profile: UserProfile?
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Suggested daily targets") {
+                    comparisonRow("Calories", current: profile?.dailyCalories, proposed: suggestion.calories, unit: "kcal")
+                    comparisonRow("Protein", current: profile?.dailyProteinG, proposed: suggestion.proteinG, unit: "g")
+                    comparisonRow("Carbs", current: profile?.dailyCarbsG, proposed: suggestion.carbsG, unit: "g")
+                    comparisonRow("Fat", current: profile?.dailyFatG, proposed: suggestion.fatG, unit: "g")
+                    comparisonRow("Fiber", current: profile?.dailyFiberG, proposed: suggestion.fiberG, unit: "g")
+                }
+                Section("Why") {
+                    Text(suggestion.rationale)
+                        .font(.subheadline)
+                }
+            }
+            .navigationTitle("AI target review")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Not now") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Apply") {
+                        if let profile {
+                            profile.dailyCalories = suggestion.calories
+                            profile.dailyProteinG = suggestion.proteinG
+                            profile.dailyCarbsG = suggestion.carbsG
+                            profile.dailyFatG = suggestion.fatG
+                            profile.dailyFiberG = suggestion.fiberG
+                        }
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                }
+            }
+        }
+    }
+
+    private func comparisonRow(_ name: String, current: Int?, proposed: Int, unit: String) -> some View {
+        LabeledContent(name) {
+            HStack(spacing: 6) {
+                if let current, current != proposed {
+                    Text("\(current)")
+                        .strikethrough()
+                        .foregroundStyle(.tertiary)
+                }
+                Text("\(proposed) \(unit)")
+                    .fontWeight(.medium)
+            }
+            .monospacedDigit()
         }
     }
 }

@@ -9,6 +9,8 @@ final class UserProfile {
     var dailyProteinG: Int
     var dailyCarbsG: Int
     var dailyFatG: Int
+    var dailyFiberG: Int = 30
+    var dailyWaterMl: Int = 2500
     var createdAt: Date
 
     init(
@@ -17,7 +19,9 @@ final class UserProfile {
         dailyCalories: Int = 2500,
         dailyProteinG: Int = 150,
         dailyCarbsG: Int = 300,
-        dailyFatG: Int = 80
+        dailyFatG: Int = 80,
+        dailyFiberG: Int = 30,
+        dailyWaterMl: Int = 2500
     ) {
         self.heightCm = heightCm
         self.goalWeightKg = goalWeightKg
@@ -25,6 +29,8 @@ final class UserProfile {
         self.dailyProteinG = dailyProteinG
         self.dailyCarbsG = dailyCarbsG
         self.dailyFatG = dailyFatG
+        self.dailyFiberG = dailyFiberG
+        self.dailyWaterMl = dailyWaterMl
         self.createdAt = .now
     }
 }
@@ -72,6 +78,7 @@ final class FoodEntry {
     var proteinG: Double
     var carbsG: Double
     var fatG: Double
+    var fiberG: Double = 0
     var sourceRaw: String
     @Attribute(.externalStorage) var photoData: Data?
 
@@ -84,6 +91,7 @@ final class FoodEntry {
         proteinG: Double,
         carbsG: Double,
         fatG: Double,
+        fiberG: Double = 0,
         source: FoodSource = .text,
         photoData: Data? = nil
     ) {
@@ -93,8 +101,20 @@ final class FoodEntry {
         self.proteinG = proteinG
         self.carbsG = carbsG
         self.fatG = fatG
+        self.fiberG = fiberG
         self.sourceRaw = source.rawValue
         self.photoData = photoData
+    }
+}
+
+@Model
+final class WaterEntry {
+    var timestamp: Date
+    var milliliters: Int
+
+    init(timestamp: Date = .now, milliliters: Int) {
+        self.timestamp = timestamp
+        self.milliliters = milliliters
     }
 }
 

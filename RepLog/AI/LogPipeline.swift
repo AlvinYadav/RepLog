@@ -98,6 +98,7 @@ enum LogPipeline {
                     proteinG: entry.proteinG ?? 0,
                     carbsG: entry.carbsG ?? 0,
                     fatG: entry.fatG ?? 0,
+                    fiberG: entry.fiberG ?? 0,
                     source: photoToAttach == nil ? .text : .photo,
                     photoData: photoToAttach // first food entry keeps the photo
                 ))
@@ -110,6 +111,8 @@ enum LogPipeline {
                 if let name = entry.supplementName, !name.isEmpty {
                     context.insert(SupplementEntry(name: name, amount: entry.supplementAmount, timestamp: timestamp))
                 }
+            case .water:
+                context.insert(WaterEntry(timestamp: timestamp, milliliters: entry.waterMl ?? 250))
             case .note:
                 if let note = entry.note, !note.isEmpty {
                     context.insert(RawLog(timestamp: timestamp, input: note, status: .note))

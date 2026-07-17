@@ -173,17 +173,68 @@ struct ProgressTabView: View {
             }
 
             ForEach(reports.prefix(4)) { report in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Week of \(report.weekStart.formatted(.dateTime.day().month(.wide)))")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                    Text(report.text)
-                        .font(.subheadline)
-                        .lineSpacing(3)
+                reportCard(report)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func reportCard(_ report: WeeklyReport) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Week of \(report.weekStart.formatted(.dateTime.day().month(.wide)))")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            if let content = try? JSONDecoder().decode(ReportContent.self, from: Data(report.text.utf8)) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                    ForEach(content.tiles, id: \.self) { tile in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tile.value)
+                                .font(.subheadline.weight(.semibold))
+                                .monospacedDigit()
+                            Text(tile.label)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
+                        .background(Color(.tertiarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                    }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Text(content.summary)
+                    .font(.subheadline)
+                    .lineSpacing(3)
+                reportList("On track", content.onTrack, symbol: "checkmark")
+                reportList("Focus", content.focus, symbol: "exclamationmark")
+                reportList("Next week", content.actions, symbol: "arrow.right")
+            } else {
+                Text(report.text)
+                    .font(.subheadline)
+                    .lineSpacing(3)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    @ViewBuilder
+    private func reportList(_ title: String, _ items: [String], symbol: String) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title.uppercased())
+                    .font(.caption2.weight(.medium))
+                    .tracking(1.5)
+                    .foregroundStyle(.secondary)
+                ForEach(items, id: \.self) { item in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Image(systemName: symbol)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(.secondary)
+                        Text(item)
+                            .font(.subheadline)
+                    }
+                }
             }
         }
     }

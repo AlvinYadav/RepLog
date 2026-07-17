@@ -75,22 +75,27 @@ struct GeminiClient {
         // or simply hang; all are transient, so retry with backoff before surfacing.
         var data = Data()
         var status = 0
+        var waitSeconds = 2.0
         let attempts = 4
         for attempt in 0..<attempts {
             if attempt > 0 {
-                try await Task.sleep(for: .seconds(pow(2.0, Double(attempt))))
+                try await Task.sleep(for: .seconds(waitSeconds))
             }
             do {
                 (data, status) = try await Self.send(request)
             } catch let error as URLError
                 where error.code == .timedOut || error.code == .networkConnectionLost {
                 if attempt == attempts - 1 { throw error }
+                waitSeconds = pow(2.0, Double(attempt + 1))
                 continue
             }
             if status != 503 && status != 429 { break }
+            let body = String(data: data, encoding: .utf8) ?? ""
             // A 429 with "limit: 0" means the model has no free-tier quota at
             // all (e.g. Pro models) — retrying can never succeed.
-            if status == 429, String(data: data, encoding: .utf8)?.contains("limit: 0") == true { break }
+            if status == 429, body.contains("limit: 0") { break }
+            // Rate-limit replies say how long to wait ("retry in 44.3s") — honor it.
+            waitSeconds = Self.suggestedRetrySeconds(in: body) ?? pow(2.0, Double(attempt + 1))
         }
         guard (200..<300).contains(status) else {
             throw GeminiError.badResponse(status, String(data: data.prefix(500), encoding: .utf8) ?? "")
@@ -107,6 +112,16 @@ struct GeminiClient {
             return text + "\n/* finishReason: \(reason) */"
         }
         return text
+    }
+
+    /// Parses "retry in 44.34s" / "retryDelay": "44s" out of a quota-error body.
+    private static func suggestedRetrySeconds(in body: String) -> Double? {
+        for pattern in [/retry in ([0-9.]+)s/, /"retryDelay":\s*"([0-9.]+)s"/] {
+            if let match = body.firstMatch(of: pattern), let seconds = Double(match.1) {
+                return min(seconds + 1, 65)
+            }
+        }
+        return nil
     }
 
     private static func send(_ request: URLRequest) async throws -> (Data, Int) {

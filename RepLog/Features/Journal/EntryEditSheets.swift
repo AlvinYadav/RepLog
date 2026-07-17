@@ -63,6 +63,11 @@ struct FoodEditSheet: View {
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
                 }
+                LabeledContent("Fiber") {
+                    TextField("g", value: $entry.fiberG, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                }
                 DatePicker("Time", selection: $entry.timestamp)
             }
             .navigationTitle("Edit food")

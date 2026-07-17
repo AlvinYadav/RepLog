@@ -59,6 +59,19 @@ struct SupplementCard: View {
     }
 }
 
+struct WaterCard: View {
+    let entry: WaterEntry
+
+    var body: some View {
+        EntryRow(
+            icon: "drop",
+            title: "\(entry.milliliters) ml",
+            detail: "Water",
+            timestamp: entry.timestamp
+        )
+    }
+}
+
 struct EntryRow: View {
     let icon: String
     let title: String

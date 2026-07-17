@@ -22,6 +22,10 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.alvin.replog
         TARGETED_DEVICE_FAMILY: "1"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+    entitlements:
+      path: RepLog/RepLog.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     info:
       path: RepLog/Info.plist
       properties:
@@ -33,3 +37,4 @@ targets:
         NSSpeechRecognitionUsageDescription: RepLog transcribes your voice on-device to create log entries.
         NSCameraUsageDescription: RepLog uses the camera to photograph meals for macro estimates.
         NSPhotoLibraryUsageDescription: RepLog lets you pick meal photos for macro estimates.
+        NSHealthShareUsageDescription: RepLog reads your steps and active energy to enrich weekly progress reports.

@@ -7,6 +7,8 @@ struct DayMetrics {
     var proteinG = 0.0
     var carbsG = 0.0
     var fatG = 0.0
+    var fiberG = 0.0
+    var waterMl = 0
     var setCount = 0
     var volumeKg = 0.0
     var weightKg: Double?
@@ -19,7 +21,8 @@ enum PlanEngine {
         foods: [FoodEntry],
         sets: [WorkoutSet],
         weights: [BodyWeightEntry],
-        supplements: [SupplementEntry]
+        supplements: [SupplementEntry],
+        water: [WaterEntry] = []
     ) -> DayMetrics {
         let cal = Calendar.current
         var m = DayMetrics()
@@ -28,6 +31,10 @@ enum PlanEngine {
             m.proteinG += food.proteinG
             m.carbsG += food.carbsG
             m.fatG += food.fatG
+            m.fiberG += food.fiberG
+        }
+        for entry in water where cal.isDate(entry.timestamp, inSameDayAs: date) {
+            m.waterMl += entry.milliliters
         }
         for set in sets where cal.isDate(set.timestamp, inSameDayAs: date) {
             m.setCount += 1
@@ -90,6 +97,9 @@ enum PlanEngine {
             let caloriesLeft = profile.dailyCalories - today.calories
             if hour >= 18, caloriesLeft > 400 {
                 recs.append("\(caloriesLeft) kcal below target — keep the surplus")
+            }
+            if hour >= 18, today.waterMl > 0, today.waterMl < profile.dailyWaterMl * 6 / 10 {
+                recs.append("Water low — \(String(format: "%.1f", Double(profile.dailyWaterMl - today.waterMl) / 1000)) L to go")
             }
         }
 

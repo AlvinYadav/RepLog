@@ -22,6 +22,8 @@
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>RepLog uses the camera to photograph meals for macro estimates.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>RepLog reads your steps and active energy to enrich weekly progress reports.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>RepLog uses the microphone so you can log workouts and meals by voice.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

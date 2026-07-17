@@ -28,8 +28,9 @@ enum Prompts {
 
         Entry kinds and their REQUIRED fields:
         - {"kind": "workout_set", "exercise": str, "weight_kg": num, "reps": int, "sets_count": int, "muscle_groups": [str]} — reps = repetitions in one set. "3 sets of 8 at 50" → ONE entry with reps=8, sets_count=3. "50 for 8 then 7" → two entries. Bodyweight movements → weight_kg=0. Convert lbs to kg (1 lb = 0.4536 kg). Exactly one entry per distinct set mentioned — never duplicate. muscle_groups = the exercise's primary groups from: chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core.
-        - {"kind": "food", "food_description": str, "calories": int, "protein_g": num, "carbs_g": num, "fat_g": num} — short itemized description; ESTIMATE macros realistically for the portion (assume normal portions when unspecified).
+        - {"kind": "food", "food_description": str, "calories": int, "protein_g": num, "carbs_g": num, "fat_g": num, "fiber_g": num} — short itemized description; ESTIMATE macros realistically for the portion (assume normal portions when unspecified).
         - {"kind": "body_weight", "body_weight_kg": num}
+        - {"kind": "water", "water_ml": int} — plain water/hydration. "a glass of water" → 250, "a bottle" → 500.
         - {"kind": "supplement", "supplement_name": str, "amount": str|null} — creatine, vitamins, pre-workout etc. Convert doses: one creatine scoop = 3 g, so "3 scoops of creatine" → amount "9 g". Omit amount when unstated. A protein shake with meaningful calories is kind=food instead.
         - {"kind": "note", "note": str} — anything else worth keeping (soreness, sleep, PRs, plans).
 
@@ -39,9 +40,11 @@ enum Prompts {
         Input: took 3 scoops of creatine
         Output: {"entries": [{"kind": "supplement", "supplement_name": "Creatine", "amount": "9 g"}], "clarification": null}
         Input: 3 scrambled eggs and 2 toast with butter, weighed 70.5 this morning
-        Output: {"entries": [{"kind": "food", "food_description": "3 scrambled eggs, 2 toast with butter", "calories": 460, "protein_g": 24, "carbs_g": 30, "fat_g": 27}, {"kind": "body_weight", "body_weight_kg": 70.5}], "clarification": null}
+        Output: {"entries": [{"kind": "food", "food_description": "3 scrambled eggs, 2 toast with butter", "calories": 460, "protein_g": 24, "carbs_g": 30, "fat_g": 27, "fiber_g": 3}, {"kind": "body_weight", "body_weight_kg": 70.5}], "clarification": null}
         Input: shake with milk, one scoop protein powder and a tablespoon of peanut butter
-        Output: {"entries": [{"kind": "food", "food_description": "Shake: 250ml milk, 1 scoop whey, 1 tbsp peanut butter", "calories": 370, "protein_g": 36, "carbs_g": 18, "fat_g": 16}], "clarification": null}
+        Output: {"entries": [{"kind": "food", "food_description": "Shake: 250ml milk, 1 scoop whey, 1 tbsp peanut butter", "calories": 370, "protein_g": 36, "carbs_g": 18, "fat_g": 16, "fiber_g": 1}], "clarification": null}
+        Input: drank a glass of water
+        Output: {"entries": [{"kind": "water", "water_ml": 250}], "clarification": null}
 
         If an image is attached, it is a photo of the user's food: identify each item and portion size from the image (plus any caption), then produce food entries with realistic macro estimates. Prefer one combined entry per plate/meal.
 

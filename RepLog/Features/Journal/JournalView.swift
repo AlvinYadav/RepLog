@@ -11,6 +11,7 @@ struct JournalView: View {
     @Query(sort: \FoodEntry.timestamp, order: .reverse) private var foods: [FoodEntry]
     @Query(sort: \BodyWeightEntry.date, order: .reverse) private var weights: [BodyWeightEntry]
     @Query(sort: \SupplementEntry.timestamp, order: .reverse) private var supplements: [SupplementEntry]
+    @Query(sort: \WaterEntry.timestamp, order: .reverse) private var waterEntries: [WaterEntry]
     @Query private var profiles: [UserProfile]
     @Query private var exercises: [Exercise]
 
@@ -165,16 +166,27 @@ struct JournalView: View {
     // MARK: - Summary
 
     private var metrics: DayMetrics {
-        PlanEngine.metrics(on: selectedDate, foods: foods, sets: sets, weights: weights, supplements: supplements)
+        PlanEngine.metrics(
+            on: selectedDate, foods: foods, sets: sets, weights: weights,
+            supplements: supplements, water: waterEntries
+        )
     }
 
     private var summaryCard: some View {
         let m = metrics
-        return VStack(alignment: .leading, spacing: 14) {
-            macroLine("Calories", Double(m.calories), Double(profile?.dailyCalories ?? 2500), unit: "kcal")
-            macroLine("Protein", m.proteinG, Double(profile?.dailyProteinG ?? 150), unit: "g")
-            macroLine("Carbs", m.carbsG, Double(profile?.dailyCarbsG ?? 300), unit: "g")
-            macroLine("Fat", m.fatG, Double(profile?.dailyFatG ?? 80), unit: "g")
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(alignment: .center, spacing: 20) {
+                CaloriesRing(value: Double(m.calories), target: Double(profile?.dailyCalories ?? 2500))
+                Spacer(minLength: 0)
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    MacroRing(label: "protein", value: m.proteinG, target: Double(profile?.dailyProteinG ?? 150))
+                    MacroRing(label: "carbs", value: m.carbsG, target: Double(profile?.dailyCarbsG ?? 300))
+                    MacroRing(label: "fat", value: m.fatG, target: Double(profile?.dailyFatG ?? 80))
+                    MacroRing(label: "fiber", value: m.fiberG, target: Double(profile?.dailyFiberG ?? 30))
+                }
+                .frame(maxWidth: 150)
+            }
+            waterRow(m)
             Divider().padding(.vertical, 2)
             HStack {
                 if m.setCount > 0 {
@@ -198,26 +210,36 @@ struct JournalView: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
-    private func macroLine(_ name: String, _ value: Double, _ target: Double, unit: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(name)
-                    .font(.footnote.weight(.medium))
-                Spacer()
-                Text("\(Int(value)) / \(Int(target)) \(unit)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
+    private func waterRow(_ m: DayMetrics) -> some View {
+        let target = Double(profile?.dailyWaterMl ?? 2500)
+        return HStack(spacing: 10) {
+            Image(systemName: "drop")
+                .font(.system(size: 13, weight: .light))
+                .foregroundStyle(.secondary)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Color.primary.opacity(0.08))
                     Capsule()
-                        .fill(Color.primary.opacity(0.55))
-                        .frame(width: geo.size.width * min(value / max(target, 1), 1))
+                        .fill(Color.primary.opacity(0.45))
+                        .frame(width: geo.size.width * min(Double(m.waterMl) / max(target, 1), 1))
                 }
             }
             .frame(height: 4)
+            Text("\(String(format: "%.1f", Double(m.waterMl) / 1000)) / \(String(format: "%.1f", target / 1000)) L")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+                .fixedSize()
+            Button {
+                context.insert(WaterEntry(timestamp: entryTimestamp, milliliters: 250))
+            } label: {
+                Image(systemName: "plus")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 24, height: 24)
+                    .background(Color.primary.opacity(0.08), in: Circle())
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -265,6 +287,7 @@ struct JournalView: View {
         case food(FoodEntry)
         case weight(BodyWeightEntry)
         case supplement(SupplementEntry)
+        case water(WaterEntry)
         case raw(RawLog)
 
         var id: PersistentIdentifier {
@@ -273,6 +296,7 @@ struct JournalView: View {
             case .food(let m): return m.persistentModelID
             case .weight(let m): return m.persistentModelID
             case .supplement(let m): return m.persistentModelID
+            case .water(let m): return m.persistentModelID
             case .raw(let m): return m.persistentModelID
             }
         }
@@ -283,6 +307,7 @@ struct JournalView: View {
             case .food(let m): return m.timestamp
             case .weight(let m): return m.date
             case .supplement(let m): return m.timestamp
+            case .water(let m): return m.timestamp
             case .raw(let m): return m.timestamp
             }
         }
@@ -300,6 +325,9 @@ struct JournalView: View {
     private var weightItems: [Item] {
         weights.filter { calendar.isDate($0.date, inSameDayAs: selectedDate) }.map(Item.weight)
     }
+    private var waterItems: [Item] {
+        waterEntries.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) }.map(Item.water)
+    }
     private var noteItems: [Item] {
         logs.filter { calendar.isDate($0.timestamp, inSameDayAs: selectedDate) && $0.status == .note }.map(Item.raw)
     }
@@ -312,7 +340,7 @@ struct JournalView: View {
 
     private var entryCount: Int {
         trainingItems.count + foodItems.count + supplementItems.count
-            + weightItems.count + noteItems.count + actionableItems.count
+            + waterItems.count + weightItems.count + noteItems.count + actionableItems.count
     }
 
     private var entriesHeader: some View {
@@ -349,6 +377,7 @@ struct JournalView: View {
             entryGroup("Training", trainingItems)
             entryGroup("Food", foodItems)
             entryGroup("Supplements", supplementItems)
+            entryGroup("Water", waterItems)
             entryGroup("Weight", weightItems)
             entryGroup("Notes", noteItems + actionableItems)
         } else {
@@ -393,6 +422,8 @@ struct JournalView: View {
                     .buttonStyle(.plain)
             case .supplement(let supplement):
                 SupplementCard(entry: supplement)
+            case .water(let water):
+                WaterCard(entry: water)
             case .raw(let raw):
                 RawLogRow(raw: raw) { LogPipeline.retry(raw, context: context) }
             }
@@ -410,6 +441,7 @@ struct JournalView: View {
         case .food(let m): context.delete(m)
         case .weight(let m): context.delete(m)
         case .supplement(let m): context.delete(m)
+        case .water(let m): context.delete(m)
         case .raw(let m): context.delete(m)
         }
     }
@@ -513,7 +545,8 @@ struct JournalView: View {
         vocabulary += [
             "reps", "rep", "sets", "kilos", "kg", "RDL", "RDLs", "superset", "drop set",
             "bench press", "incline", "deadlift", "lat pulldown", "overhead press",
-            "creatine", "protein shake", "pre-workout", "bodyweight", "PR", "scoop", "scoops"
+            "creatine", "protein shake", "pre-workout", "bodyweight", "PR", "scoop", "scoops",
+            "water", "fiber", "litre", "liter"
         ]
         speech.vocabulary = vocabulary
     }

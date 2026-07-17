@@ -8,6 +8,7 @@ struct ParsedEntry: Decodable {
         case food
         case bodyWeight = "body_weight"
         case supplement
+        case water
         case note
     }
 
@@ -25,6 +26,8 @@ struct ParsedEntry: Decodable {
     let bodyWeightKg: Double?
     let supplementName: String?
     let supplementAmount: String?
+    let fiberG: Double?
+    let waterMl: Int?
     let note: String?
 
     enum CodingKeys: String, CodingKey {
@@ -39,6 +42,8 @@ struct ParsedEntry: Decodable {
         case bodyWeightKg = "body_weight_kg"
         case supplementName = "supplement_name"
         case supplementAmount = "amount"
+        case fiberG = "fiber_g"
+        case waterMl = "water_ml"
     }
 
     // Models are inconsistent with JSON number types (3 vs 3.0 vs "3"),
@@ -67,6 +72,8 @@ struct ParsedEntry: Decodable {
         carbsG = Self.flexibleDouble(c, .carbsG)
         fatG = Self.flexibleDouble(c, .fatG)
         bodyWeightKg = Self.flexibleDouble(c, .bodyWeightKg)
+        fiberG = Self.flexibleDouble(c, .fiberG)
+        waterMl = Self.flexibleInt(c, .waterMl)
     }
 
     private static func flexibleDouble(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> Double? {
