@@ -29,14 +29,25 @@ enum LogPipeline {
                 user: raw.input,
                 jsonOutput: true
             )
+            raw.parsedJSON = json // stored before parsing so diagnostics always shows the raw reply
             let result = try EntryParser.parse(json)
             materialize(result, at: raw.timestamp, context: context, exercises: exercises)
-            raw.parsedJSON = json
             raw.clarification = result.clarification
             raw.status = .parsed
         } catch {
             raw.status = .failed
-            raw.errorMessage = error.localizedDescription
+            raw.errorMessage = Self.describe(error)
+        }
+    }
+
+    private static func describe(_ error: Error) -> String {
+        guard let decodingError = error as? DecodingError else { return error.localizedDescription }
+        switch decodingError {
+        case .keyNotFound(let key, _): return "Decode: missing key '\(key.stringValue)'"
+        case .typeMismatch(_, let ctx), .valueNotFound(_, let ctx), .dataCorrupted(let ctx):
+            let path = ctx.codingPath.map(\.stringValue).joined(separator: ".")
+            return "Decode at '\(path)': \(ctx.debugDescription)"
+        @unknown default: return decodingError.localizedDescription
         }
     }
 

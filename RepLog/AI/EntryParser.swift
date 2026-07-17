@@ -38,7 +38,8 @@ struct ParsedEntry: Decodable {
     // so numeric fields are decoded leniently instead of trusting the schema.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        kind = try c.decode(Kind.self, forKey: .kind)
+        // Unknown kind → keep the entry as a note rather than failing the parse.
+        kind = (try? c.decode(Kind.self, forKey: .kind)) ?? .note
         exercise = try? c.decodeIfPresent(String.self, forKey: .exercise)
         note = try? c.decodeIfPresent(String.self, forKey: .note)
         foodDescription = try? c.decodeIfPresent(String.self, forKey: .foodDescription)
