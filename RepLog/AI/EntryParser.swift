@@ -73,37 +73,15 @@ struct ParseResult: Decodable {
 }
 
 enum EntryParser {
-    /// Gemini responseSchema (OpenAPI subset) matching ParseResult.
-    static let responseSchema: [String: Any] = [
-        "type": "OBJECT",
-        "properties": [
-            "entries": [
-                "type": "ARRAY",
-                "items": [
-                    "type": "OBJECT",
-                    "properties": [
-                        "kind": ["type": "STRING", "enum": ["workout_set", "food", "body_weight", "note"]],
-                        "exercise": ["type": "STRING", "nullable": true],
-                        "weight_kg": ["type": "NUMBER", "nullable": true],
-                        "reps": ["type": "INTEGER", "nullable": true],
-                        "sets_count": ["type": "INTEGER", "nullable": true],
-                        "food_description": ["type": "STRING", "nullable": true],
-                        "calories": ["type": "INTEGER", "nullable": true],
-                        "protein_g": ["type": "NUMBER", "nullable": true],
-                        "carbs_g": ["type": "NUMBER", "nullable": true],
-                        "fat_g": ["type": "NUMBER", "nullable": true],
-                        "body_weight_kg": ["type": "NUMBER", "nullable": true],
-                        "note": ["type": "STRING", "nullable": true]
-                    ] as [String: Any],
-                    "required": ["kind"]
-                ] as [String: Any]
-            ] as [String: Any],
-            "clarification": ["type": "STRING", "nullable": true]
-        ] as [String: Any],
-        "required": ["entries"]
-    ]
-
+    /// Decodes the model's reply, tolerating markdown fences or stray prose
+    /// around the JSON object.
     static func parse(_ jsonText: String) throws -> ParseResult {
-        try JSONDecoder().decode(ParseResult.self, from: Data(jsonText.utf8))
+        let trimmed: Substring
+        if let start = jsonText.firstIndex(of: "{"), let end = jsonText.lastIndex(of: "}"), start < end {
+            trimmed = jsonText[start...end]
+        } else {
+            trimmed = Substring(jsonText)
+        }
+        return try JSONDecoder().decode(ParseResult.self, from: Data(trimmed.utf8))
     }
 }

@@ -23,14 +23,22 @@ enum Prompts {
         The user's known exercises (map mentions onto these canonical names when they match):
         \(exerciseList)
 
-        Rules:
-        - kind=workout_set: ALWAYS fill exercise, weight_kg, and reps (reps = number of repetitions in one set; "40kg 3 reps" → weight_kg=40, reps=3, sets_count=1). "3 sets of 8 at 50" → ONE entry: weight_kg=50, reps=8, sets_count=3. "50 for 8 then 7 then 6" → three separate entries. Bodyweight movements → weight_kg=0. Convert lbs to kg (1 lb = 0.4536 kg). Emit exactly one entry per distinct set mentioned — never duplicate.
-        - kind=food: fill food_description (short, itemized) and ESTIMATE calories, protein_g, carbs_g, fat_g realistically for the described portion. Assume normal portions when unspecified.
-        - kind=body_weight: statements like "weighed 70.5 this morning" → body_weight_kg.
-        - kind=note: anything else worth keeping (soreness, sleep, PRs, plans) → note.
-        - An utterance may produce multiple entries of mixed kinds.
-        - If genuinely ambiguous (e.g. a number with no context), still produce your best-guess entries AND set clarification to one short question.
-        - Weights ≤ 300 both kg-plausible: prefer kg — the user is metric.
+        Respond with ONLY a JSON object, no markdown, exactly this shape:
+        {"entries": [ ... ], "clarification": null}
+
+        Entry kinds and their REQUIRED fields:
+        - {"kind": "workout_set", "exercise": str, "weight_kg": num, "reps": int, "sets_count": int} — reps = repetitions in one set. "3 sets of 8 at 50" → ONE entry with reps=8, sets_count=3. "50 for 8 then 7" → two entries. Bodyweight movements → weight_kg=0. Convert lbs to kg (1 lb = 0.4536 kg). Exactly one entry per distinct set mentioned — never duplicate.
+        - {"kind": "food", "food_description": str, "calories": int, "protein_g": num, "carbs_g": num, "fat_g": num} — short itemized description; ESTIMATE macros realistically for the portion (assume normal portions when unspecified).
+        - {"kind": "body_weight", "body_weight_kg": num}
+        - {"kind": "note", "note": str} — anything else worth keeping (soreness, sleep, PRs, plans).
+
+        Examples:
+        Input: bench 40kg 3 reps
+        Output: {"entries": [{"kind": "workout_set", "exercise": "Bench Press", "weight_kg": 40, "reps": 3, "sets_count": 1}], "clarification": null}
+        Input: 3 scrambled eggs and 2 toast with butter, weighed 70.5 this morning
+        Output: {"entries": [{"kind": "food", "food_description": "3 scrambled eggs, 2 toast with butter", "calories": 460, "protein_g": 24, "carbs_g": 30, "fat_g": 27}, {"kind": "body_weight", "body_weight_kg": 70.5}], "clarification": null}
+
+        An utterance may produce multiple entries of mixed kinds. If genuinely ambiguous (e.g. a number with no context), still produce best-guess entries AND set clarification to one short question. Ambiguous units: prefer kg — the user is metric.
         """
     }
 }

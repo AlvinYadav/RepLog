@@ -36,7 +36,7 @@ struct GeminiClient {
         system: String,
         user: String,
         image: InlineImage? = nil,
-        responseSchema: [String: Any]? = nil
+        jsonOutput: Bool = false
     ) async throws -> String {
         guard let key = Keychain.get(Keychain.geminiAPIKey), !key.isEmpty else {
             throw GeminiError.missingAPIKey
@@ -53,9 +53,8 @@ struct GeminiClient {
         }
 
         var generationConfig: [String: Any] = ["temperature": 0.2]
-        if let responseSchema {
+        if jsonOutput {
             generationConfig["response_mime_type"] = "application/json"
-            generationConfig["response_schema"] = responseSchema
         }
 
         let body: [String: Any] = [

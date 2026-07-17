@@ -27,7 +27,7 @@ enum LogPipeline {
             let json = try await client.generate(
                 system: Prompts.logParsing(profile: profile, exercises: exercises),
                 user: raw.input,
-                responseSchema: EntryParser.responseSchema
+                jsonOutput: true
             )
             let result = try EntryParser.parse(json)
             materialize(result, at: raw.timestamp, context: context, exercises: exercises)
