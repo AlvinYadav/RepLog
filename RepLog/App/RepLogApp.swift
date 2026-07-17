@@ -7,16 +7,6 @@ struct RepLogApp: App {
         WindowGroup {
             RootTabView()
         }
-        .modelContainer(for: [
-            UserProfile.self,
-            Exercise.self,
-            WorkoutSet.self,
-            FoodEntry.self,
-            BodyWeightEntry.self,
-            SupplementEntry.self,
-            WaterEntry.self,
-            WeeklyReport.self,
-            RawLog.self
-        ])
+        .modelContainer(AppModel.container)
     }
 }

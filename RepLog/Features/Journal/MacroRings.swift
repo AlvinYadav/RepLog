@@ -23,7 +23,7 @@ struct MacroRing: View {
                     )
                     .rotationEffect(.degrees(-90))
                 Text("\(Int(value))")
-                    .font(.system(size: size * 0.26, weight: .semibold))
+                    .font(.system(size: size * 0.27, weight: .semibold, design: .serif))
                     .monospacedDigit()
             }
             .frame(width: size, height: size)
@@ -57,10 +57,10 @@ struct CaloriesRing: View {
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 1) {
                     Text("\(Int(value))")
-                        .font(.system(size: 22, weight: .semibold))
+                        .font(.system(size: 23, weight: .semibold, design: .serif))
                         .monospacedDigit()
                     Text("/ \(Int(target))")
-                        .font(.caption2)
+                        .font(.system(.caption2, design: .serif))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }

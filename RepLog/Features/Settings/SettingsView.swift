@@ -13,6 +13,7 @@ struct SettingsView: View {
     @State private var reviewing = false
     @State private var reviewError: String?
     @State private var suggestion: TargetSuggestion?
+    @State private var exportURL: URL?
 
     var body: some View {
         NavigationStack {
@@ -86,8 +87,22 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section("Data") {
+                    if let exportURL {
+                        ShareLink(item: exportURL) {
+                            Label("Share export", systemImage: "square.and.arrow.up")
+                        }
+                    }
+                    Button(exportURL == nil ? "Export all data (JSON)" : "Re-export") {
+                        exportURL = try? Exporter.exportJSON(context: context)
+                    }
+                    Text("Everything you've logged, as one JSON file. Save it to Files/iCloud Drive as a backup.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Section {
-                    LabeledContent("Version", value: "0.5.0")
+                    LabeledContent("Version", value: "0.6.0")
                 }
             }
             .navigationTitle("Settings")

@@ -29,7 +29,23 @@ enum LogPipeline {
         Task { await process(raw, context: context) }
     }
 
-    private static func process(_ raw: RawLog, context: ModelContext) async {
+    /// Synchronous variant for Siri: waits for the parse and describes the result.
+    static func submitAndWait(text: String, context: ModelContext) async -> String {
+        let raw = RawLog(input: text, status: .pending)
+        context.insert(raw)
+        let summaries = await process(raw, context: context)
+        switch raw.status {
+        case .parsed where !summaries.isEmpty:
+            return "Logged: " + summaries.joined(separator: ", ")
+        case .parsed:
+            return "Logged."
+        default:
+            return "Saved — I'll parse it when you open RepLog."
+        }
+    }
+
+    @discardableResult
+    private static func process(_ raw: RawLog, context: ModelContext) async -> [String] {
         let profile = (try? context.fetch(FetchDescriptor<UserProfile>()))?.first
         let exercises = (try? context.fetch(FetchDescriptor<Exercise>())) ?? []
 
@@ -44,12 +60,14 @@ enum LogPipeline {
             )
             raw.parsedJSON = json // stored before parsing so diagnostics always shows the raw reply
             let result = try EntryParser.parse(json)
-            materialize(result, at: raw.timestamp, context: context, exercises: exercises, photo: raw.photoData)
+            let summaries = materialize(result, at: raw.timestamp, context: context, exercises: exercises, photo: raw.photoData)
             raw.clarification = result.clarification
             raw.status = .parsed
+            return summaries
         } catch {
             raw.status = .failed
             raw.errorMessage = Self.describe(error)
+            return []
         }
     }
 
@@ -64,15 +82,17 @@ enum LogPipeline {
         }
     }
 
+    @discardableResult
     private static func materialize(
         _ result: ParseResult,
         at timestamp: Date,
         context: ModelContext,
         exercises: [Exercise],
         photo: Data? = nil
-    ) {
+    ) -> [String] {
         var known = exercises
         var photoToAttach = photo
+        var summaries: [String] = []
         for entry in result.entries {
             switch entry.kind {
             case .workoutSet:
@@ -90,6 +110,8 @@ enum LogPipeline {
                         timestamp: timestamp
                     ))
                 }
+                let sets = count > 1 ? "\(count)×" : ""
+                summaries.append("\(exercise.name) \(sets)\((entry.weightKg ?? 0).formatted()) kg × \(entry.reps ?? 0)")
             case .food:
                 context.insert(FoodEntry(
                     timestamp: timestamp,
@@ -103,22 +125,29 @@ enum LogPipeline {
                     photoData: photoToAttach // first food entry keeps the photo
                 ))
                 photoToAttach = nil
+                summaries.append("\(entry.foodDescription ?? "food"), \(entry.calories ?? 0) calories")
             case .bodyWeight:
                 if let kg = entry.bodyWeightKg {
                     context.insert(BodyWeightEntry(date: timestamp, weightKg: kg))
+                    summaries.append("weight \(kg.formatted()) kg")
                 }
             case .supplement:
                 if let name = entry.supplementName, !name.isEmpty {
                     context.insert(SupplementEntry(name: name, amount: entry.supplementAmount, timestamp: timestamp))
+                    summaries.append(name.lowercased())
                 }
             case .water:
-                context.insert(WaterEntry(timestamp: timestamp, milliliters: entry.waterMl ?? 250))
+                let ml = entry.waterMl ?? 250
+                context.insert(WaterEntry(timestamp: timestamp, milliliters: ml))
+                summaries.append("\(ml) ml water")
             case .note:
                 if let note = entry.note, !note.isEmpty {
                     context.insert(RawLog(timestamp: timestamp, input: note, status: .note))
+                    summaries.append("note")
                 }
             }
         }
+        return summaries
     }
 
     /// Backfills muscle groups for exercises that were created without them

@@ -7,10 +7,33 @@ enum GeminiError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .missingAPIKey: return "No Gemini API key set. Add one in Settings."
-        case .badResponse(let code, let body): return "Gemini API error \(code): \(body)"
-        case .emptyCandidate: return "Gemini returned no content."
+        case .missingAPIKey:
+            return "No Gemini API key set. Add one in Settings."
+        case .badResponse(429, let body) where body.contains("limit: 0"):
+            return "This model has no free-tier quota. Pick a Flash model in Settings → Models."
+        case .badResponse(429, _):
+            return "Gemini free-tier rate limit hit — wait a minute and retry."
+        case .badResponse(let code, let body):
+            return "Gemini API error \(code): \(body.prefix(200))"
+        case .emptyCandidate:
+            return "Gemini returned no content."
         }
+    }
+}
+
+/// Serializes requests and enforces minimum spacing so bursts (report +
+/// parses + retries) can't trip the free tier's per-minute limit.
+actor RequestGate {
+    static let shared = RequestGate()
+    private var lastRequest = Date.distantPast
+    private static let minInterval: TimeInterval = 4
+
+    func waitTurn() async {
+        let elapsed = Date().timeIntervalSince(lastRequest)
+        if elapsed < Self.minInterval {
+            try? await Task.sleep(for: .seconds(Self.minInterval - elapsed))
+        }
+        lastRequest = Date()
     }
 }
 
@@ -81,6 +104,7 @@ struct GeminiClient {
             if attempt > 0 {
                 try await Task.sleep(for: .seconds(waitSeconds))
             }
+            await RequestGate.shared.waitTurn()
             do {
                 (data, status) = try await Self.send(request)
             } catch let error as URLError
