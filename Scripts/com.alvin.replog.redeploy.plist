@@ -7,7 +7,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/zsh</string>
-        <string>/Users/YOUR_USERNAME/Downloads/Projects/RepLog/Scripts/redeploy.sh</string>
+        <string>/Users/YOUR_USERNAME/Developer/RepLog/Scripts/redeploy.sh</string>
     </array>
     <!-- Wednesday and Sunday 19:00: even if one run is missed or fails,
          the next lands well inside the 7-day provisioning window.
@@ -33,5 +33,11 @@
     </array>
     <key>RunAtLoad</key>
     <false/>
+    <!-- Catches failures before the script's own logging starts
+         (e.g. launchd unable to open the script at all). -->
+    <key>StandardOutPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/replog-redeploy.launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOUR_USERNAME/Library/Logs/replog-redeploy.launchd.log</string>
 </dict>
 </plist>

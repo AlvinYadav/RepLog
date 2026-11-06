@@ -4,9 +4,12 @@
 set -euo pipefail
 
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
-PROJ="/Users/YOUR_USERNAME/Downloads/Projects/RepLog"
+# Must live outside ~/Downloads: macOS privacy protection blocks launchd
+# jobs from reading it (zsh exits 127 before this script even starts).
+PROJ="/Users/YOUR_USERNAME/Developer/RepLog"
 DEVICE="00000000-0000-0000-0000-000000000000"
 LOG="$HOME/Library/Logs/replog-redeploy.log"
+DERIVED="$HOME/Library/Developer/Xcode/DerivedData/RepLog-redeploy"
 
 notify() {
   /usr/bin/osascript -e "display notification \"$1\" with title \"RepLog redeploy\"" || true
@@ -16,9 +19,12 @@ run() {
   echo "=== $(date) redeploy start"
   cd "$PROJ"
   /opt/homebrew/bin/xcodegen generate
-  xcodebuild -scheme RepLog -destination 'generic/platform=iOS' -allowProvisioningUpdates build
-  APP=$(find "$HOME/Library/Developer/Xcode/DerivedData" -path "*Debug-iphoneos/RepLog.app" -not -path "*Index.noindex*" | head -1)
-  [ -n "$APP" ] || { echo "no built app found"; return 1; }
+  # Fixed derived-data path so we always install the app this run just built,
+  # never a stale one left in another DerivedData folder.
+  xcodebuild -scheme RepLog -destination 'generic/platform=iOS' -allowProvisioningUpdates \
+    -derivedDataPath "$DERIVED" build
+  APP="$DERIVED/Build/Products/Debug-iphoneos/RepLog.app"
+  [ -d "$APP" ] || { echo "no built app found"; return 1; }
   xcrun devicectl device install app --device "$DEVICE" "$APP"
   echo "=== $(date) redeploy success"
 }
