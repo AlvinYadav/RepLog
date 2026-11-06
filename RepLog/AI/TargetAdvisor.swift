@@ -67,9 +67,10 @@ enum TargetAdvisor {
         }
         let json = String(data: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), encoding: .utf8) ?? "{}"
 
+        let currentWeight = weights.last.map { ", currently ~\(Int($0.weightKg)) kg" } ?? ""
         let profileLine = profile.map {
-            "User: 170 cm, currently ~70 kg, lean bulk, goal \(Int($0.goalWeightKg)) kg."
-        } ?? "User: 170 cm, lean bulk."
+            "User: \(Int($0.heightCm)) cm\(currentWeight), lean bulk, goal \(Int($0.goalWeightKg)) kg."
+        } ?? "User: lean bulk."
 
         let system = """
         You are a sports nutrition coach. \(profileLine) Target rate: gaining roughly 0.25-0.5 kg per week — adjust calories up if weight is flat, down if gaining too fast. Protein ~2-2.2 g/kg bodyweight. You receive the last 14 days of the user's logged data as JSON.

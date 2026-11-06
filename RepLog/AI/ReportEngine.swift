@@ -57,7 +57,7 @@ enum ReportEngine {
         ) ?? "{}"
 
         let profileLine = profile.map {
-            "User: 170 cm, bulking, goal \(Int($0.goalWeightKg)) kg. Daily targets: \($0.dailyCalories) kcal, \($0.dailyProteinG)g protein, \($0.dailyFiberG)g fiber."
+            "User: \(Int($0.heightCm)) cm, bulking, goal \(Int($0.goalWeightKg)) kg. Daily targets: \($0.dailyCalories) kcal, \($0.dailyProteinG)g protein, \($0.dailyFiberG)g fiber."
         } ?? "User is bulking."
 
         let system = """

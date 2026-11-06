@@ -157,7 +157,7 @@ struct SettingsView: View {
             if let error = reviewError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
-            Text("Current defaults assume a 170 cm lean bulk: ≈2,500 kcal (maintenance plus a ~400 kcal surplus) and protein at ~2.2 g per kg. After a week of logging, the AI can tune these to your actual intake, weight trend, and training.")
+            Text("These are starting defaults for a lean bulk: a small calorie surplus with protein around 2.2 g per kg of body weight. Adjust them for your height, weight, and goal. After a week of logging, the AI can tune them to your actual intake, weight trend, and training.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

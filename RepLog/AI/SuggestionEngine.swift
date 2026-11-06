@@ -28,7 +28,7 @@ enum SuggestionEngine {
 
         let hour = calendar.component(.hour, from: .now)
         let profileLine = profile.map {
-            "User: 170 cm, bulking toward \(Int($0.goalWeightKg)) kg. Daily targets: \($0.dailyCalories) kcal, \($0.dailyProteinG)g protein."
+            "User: \(Int($0.heightCm)) cm, bulking toward \(Int($0.goalWeightKg)) kg. Daily targets: \($0.dailyCalories) kcal, \($0.dailyProteinG)g protein."
         } ?? "User: bulking."
 
         let ask: String

@@ -6,8 +6,10 @@ set -euo pipefail
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 # Must live outside ~/Downloads: macOS privacy protection blocks launchd
 # jobs from reading it (zsh exits 127 before this script even starts).
-PROJ="/Users/YOUR_USERNAME/Developer/RepLog"
-DEVICE="00000000-0000-0000-0000-000000000000"
+PROJ="${0:A:h:h}"
+# Per-machine value from the gitignored Local.xcconfig (see README).
+DEVICE=$(sed -n 's/^REPLOG_DEVICE_ID *= *//p' "$PROJ/Local.xcconfig" 2>/dev/null || true)
+[ -n "$DEVICE" ] || { echo "REPLOG_DEVICE_ID not set in $PROJ/Local.xcconfig" >&2; exit 1; }
 LOG="$HOME/Library/Logs/replog-redeploy.log"
 DERIVED="$HOME/Library/Developer/Xcode/DerivedData/RepLog-redeploy"
 

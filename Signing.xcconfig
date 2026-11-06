@@ -1,0 +1,2 @@
+// Team and device IDs live in the gitignored Local.xcconfig (see README).
+#include? "Local.xcconfig"
